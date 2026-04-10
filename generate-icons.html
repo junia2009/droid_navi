@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>RT91 Icon Generator</title>
+  <style>
+    body { background: #1a1a2e; color: #ccc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+    h1 { color: #e44; margin-bottom: 20px; }
+    .preview { display: flex; gap: 30px; margin: 20px 0; }
+    .icon-box { text-align: center; }
+    .icon-box canvas { border: 2px solid #444; border-radius: 16px; }
+    .icon-box p { margin-top: 8px; font-size: 13px; color: #888; }
+    button { padding: 12px 32px; background: #b31e22; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px; }
+    button:hover { background: #d44; }
+    #status { margin-top: 16px; font-size: 14px; color: #8a8; }
+  </style>
+</head>
+<body>
+  <h1>RT91 Navi アイコン生成</h1>
+  <p>3Dモデルからアイコンを生成してダウンロードします</p>
+  <div class="preview">
+    <div class="icon-box"><canvas id="c192" width="192" height="192"></canvas><p>192x192</p></div>
+    <div class="icon-box"><canvas id="c512" width="512" height="512"></canvas><p>512x512</p></div>
+  </div>
+  <div>
+    <button onclick="downloadIcon(192)">192x192 ダウンロード</button>
+    <button onclick="downloadIcon(512)">512x512 ダウンロード</button>
+    <button onclick="downloadIcon(192); setTimeout(function(){downloadIcon(512);},500);">両方ダウンロード</button>
+  </div>
+  <div id="status"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // 各サイズのレンダラーを用意
+    var renderers = {};
+    [192, 512].forEach(function(size) {
+      var canvas = document.getElementById('c' + size);
+      var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(size, size);
+      renderer.setClearColor(0x0c0c16);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      renderers[size] = renderer;
+    });
+
+    // シーン構築（index.htmlと同じ）
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+    // ライティング
+    scene.add(new THREE.AmbientLight(0x8899bb, 0.55));
+    var keyL = new THREE.DirectionalLight(0xfff4e0, 1.35);
+    keyL.position.set(4, 7, 6); keyL.castShadow = true;
+    keyL.shadow.mapSize.set(2048, 2048);
+    scene.add(keyL);
+    var fillL = new THREE.DirectionalLight(0xaaccff, 0.3); fillL.position.set(-4, 4, 5); scene.add(fillL);
+    var rimL = new THREE.DirectionalLight(0x5577aa, 0.25); rimL.position.set(0, 3, -5); scene.add(rimL);
+    var botL = new THREE.PointLight(0x334455, 0.2, 6); botL.position.set(0, -0.3, 3); scene.add(botL);
+
+    // マテリアル
+    var M = {
+      wh: new THREE.MeshStandardMaterial({ color: 0xe6e6e6, roughness: 0.42, metalness: 0.06 }),
+      whClean: new THREE.MeshStandardMaterial({ color: 0xeeeef2, roughness: 0.38, metalness: 0.04 }),
+      rd: new THREE.MeshStandardMaterial({ color: 0xb31e22, roughness: 0.44, metalness: 0.06 }),
+      rdDk: new THREE.MeshStandardMaterial({ color: 0x8a1518, roughness: 0.5, metalness: 0.08 }),
+      bl: new THREE.MeshStandardMaterial({ color: 0x1a3cb5, roughness: 0.35, metalness: 0.08 }),
+      sv: new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.3, metalness: 0.55 }),
+      svDk: new THREE.MeshStandardMaterial({ color: 0x686e76, roughness: 0.38, metalness: 0.48 }),
+      dk: new THREE.MeshStandardMaterial({ color: 0x2c3038, roughness: 0.4, metalness: 0.5 }),
+      bk: new THREE.MeshStandardMaterial({ color: 0x0e0e12, roughness: 0.12, metalness: 0.65 }),
+      lens: new THREE.MeshStandardMaterial({ color: 0x080810, roughness: 0.04, metalness: 0.88, emissive: 0x0a0a18, emissiveIntensity: 0.15 }),
+      hlM: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+      panelLine: new THREE.MeshStandardMaterial({ color: 0xccccd0, roughness: 0.55, metalness: 0.1 }),
+    };
+
+    function cy(r1,r2,h,s){ return new THREE.CylinderGeometry(r1,r2,h,s||28); }
+    function sp(r,w,h){ return new THREE.SphereGeometry(r,w||20,h||16); }
+    function bx(w,h,d){ return new THREE.BoxGeometry(w,h,d); }
+    function tr(r,t,rs,ts){ return new THREE.TorusGeometry(r,t,rs||10,ts||40); }
+
+    var droid = new THREE.Group();
+    var DR = 0.7;
+
+    // ドーム
+    var dome = new THREE.Group(); dome.name='dome';
+    var domeShell = new THREE.Mesh(new THREE.SphereGeometry(DR, 36, 22, 0, Math.PI*2, 0, Math.PI*0.5), M.rd);
+    domeShell.castShadow = true; dome.add(domeShell);
+    var bandMesh = new THREE.Mesh(new THREE.SphereGeometry(DR+0.003, 36, 4, 0, Math.PI*2, Math.PI*0.35, Math.PI*0.12), M.whClean);
+    dome.add(bandMesh);
+
+    function addDomePanel(angH, angV, w, h) {
+      var g = bx(w, h, 0.008); var m = new THREE.Mesh(g, M.whClean);
+      var r = DR + 0.005;
+      m.position.set(Math.sin(angH)*Math.cos(angV)*r, Math.sin(angV)*r, Math.cos(angH)*Math.cos(angV)*r);
+      m.lookAt(m.position.x*2, m.position.y*2, m.position.z*2); dome.add(m);
+    }
+    addDomePanel(0.08, 0.38, 0.28, 0.24);
+    addDomePanel(-0.36, 0.25, 0.12, 0.1);
+    addDomePanel(0.6, 0.42, 0.14, 0.14);
+    addDomePanel(0.75, 0.3, 0.12, 0.08);
+    addDomePanel(0.5, 0.2, 0.08, 0.06);
+    addDomePanel(-0.65, 0.4, 0.16, 0.12);
+    addDomePanel(-0.8, 0.28, 0.1, 0.08);
+    addDomePanel(Math.PI, 0.4, 0.18, 0.16);
+    addDomePanel(Math.PI+0.35, 0.35, 0.14, 0.1);
+    addDomePanel(Math.PI-0.4, 0.32, 0.12, 0.08);
+    addDomePanel(0.3, 0.65, 0.12, 0.1);
+    addDomePanel(-0.4, 0.7, 0.1, 0.08);
+    addDomePanel(Math.PI*0.5, 0.6, 0.1, 0.08);
+
+    var rimG = tr(DR, 0.05, 12, 44);
+    var rim = new THREE.Mesh(rimG, M.rd);
+    rim.rotation.x = Math.PI/2; rim.position.y = -0.015; dome.add(rim);
+
+    // メインアイ
+    var eyeY = 0.28, eyeZ = DR - 0.01;
+    var eyeHousing = new THREE.Mesh(cy(0.115, 0.12, 0.07, 22), M.dk);
+    eyeHousing.rotation.x = Math.PI/2; eyeHousing.position.set(0.05, eyeY, eyeZ+0.03); dome.add(eyeHousing);
+    var mainLens = new THREE.Mesh(sp(0.095, 18, 14), M.lens);
+    mainLens.scale.set(1, 1, 0.5); mainLens.position.set(0.05, eyeY, eyeZ+0.06); dome.add(mainLens);
+    var hl = new THREE.Mesh(sp(0.03, 8, 6), M.hlM);
+    hl.position.set(0.075, eyeY+0.04, eyeZ+0.075); dome.add(hl);
+    var subH = new THREE.Mesh(cy(0.05, 0.055, 0.04, 14), M.dk);
+    subH.rotation.x = Math.PI/2; subH.position.set(-0.2, 0.17, eyeZ+0.01); dome.add(subH);
+    var subL = new THREE.Mesh(sp(0.04, 10, 8), M.bk);
+    subL.position.set(-0.2, 0.17, eyeZ+0.035); dome.add(subL);
+
+    dome.position.y = 1.875;
+    droid.add(dome);
+
+    // ボディ
+    var body = new THREE.Group(); body.name='main-body';
+    var BR_TOP = 0.7, BR_BOT = 0.55, BH = 1.25;
+    var bodyCyl = new THREE.Mesh(cy(BR_TOP, BR_BOT, BH, 36), M.wh);
+    bodyCyl.castShadow = true; body.add(bodyCyl);
+
+    var bsZ = 0.69;
+    var bsFrame = new THREE.Mesh(bx(0.5, 0.26, 0.03), M.sv);
+    bsFrame.position.set(0, 0.28, bsZ); body.add(bsFrame);
+    var bs1 = new THREE.Mesh(bx(0.44, 0.07, 0.035), M.bl);
+    bs1.position.set(0, 0.34, bsZ+0.005); body.add(bs1);
+    var bs2 = new THREE.Mesh(bx(0.44, 0.07, 0.035), M.bl);
+    bs2.position.set(0, 0.22, bsZ+0.005); body.add(bs2);
+
+    var grillX = -0.18, grillY = -0.02;
+    var gFrame = new THREE.Mesh(bx(0.2, 0.16, 0.02), M.sv);
+    gFrame.position.set(grillX, grillY, bsZ); body.add(gFrame);
+    for (var lv = 0; lv < 5; lv++) {
+      var louver = new THREE.Mesh(bx(0.15, 0.012, 0.025), M.svDk);
+      louver.position.set(grillX, grillY + 0.052 - lv*0.026, bsZ+0.01); body.add(louver);
+    }
+
+    function addPort(x, y, r, mat) {
+      var p = new THREE.Mesh(cy(r, r, 0.03, 14), mat || M.sv);
+      p.rotation.x = Math.PI/2; p.position.set(x, y, bsZ+0.01); body.add(p);
+      var pi = new THREE.Mesh(cy(r*0.6, r*0.6, 0.02, 10), M.dk);
+      pi.rotation.x = Math.PI/2; pi.position.set(x, y, bsZ+0.025); body.add(pi);
+    }
+    addPort(0.18, 0.0, 0.055); addPort(0.18, -0.10, 0.055); addPort(0.0, -0.28, 0.06);
+
+    body.position.y = 1.25;
+    droid.add(body);
+
+    // 肩ジョイント
+    function buildShoulder(side) {
+      var sg = new THREE.Group();
+      var sx = side * 0.68;
+      var outerRing = new THREE.Mesh(cy(0.23, 0.23, 0.18, 22), M.rd);
+      outerRing.rotation.z = Math.PI/2; outerRing.position.set(sx + side*0.09, 1.55, 0); sg.add(outerRing);
+      var jRim = new THREE.Mesh(cy(0.25, 0.25, 0.04, 22), M.rdDk);
+      jRim.rotation.z = Math.PI/2; jRim.position.set(sx + side*0.2, 1.55, 0); sg.add(jRim);
+      var jCtr = new THREE.Mesh(cy(0.09, 0.09, 0.025, 14), M.sv);
+      jCtr.rotation.z = Math.PI/2; jCtr.position.set(sx + side*0.21, 1.55, 0); sg.add(jCtr);
+      return sg;
+    }
+    droid.add(buildShoulder(-1)); droid.add(buildShoulder(1));
+
+    // 脚
+    function buildLeg(side) {
+      var lg = new THREE.Group();
+      var lx = side * 0.78;
+      var railT = 0.018, railW = 0.16, railGap = 0.28, railH = 1.2;
+      var frontRail = new THREE.Mesh(bx(railW, railH, railT), M.rd);
+      frontRail.position.set(lx, 0.78, railGap/2); lg.add(frontRail);
+      var backRail = new THREE.Mesh(bx(railW, railH, railT), M.rd);
+      backRail.position.set(lx, 0.78, -railGap/2); lg.add(backRail);
+      var outerPlate = new THREE.Mesh(bx(railT, railH, railGap + railT*2), M.rd);
+      outerPlate.position.set(lx + side*(railW/2), 0.78, 0); lg.add(outerPlate);
+      var topW = railW + 0.08, topD = railGap + 0.1, topH = 0.32;
+      var topBlock = new THREE.Mesh(bx(topW, topH, topD), M.rd);
+      topBlock.position.set(lx, 1.55, 0); lg.add(topBlock);
+      var blueP = new THREE.Mesh(bx(railW * 0.7, railH * 0.55, 0.03), M.bl);
+      blueP.position.set(lx, 0.78, 0); lg.add(blueP);
+      var fWtop = 0.22, fWbot = 0.32, fH2 = 0.14, fDepth = 0.6;
+      var footShape = new THREE.Shape();
+      footShape.moveTo(-fWtop/2, fH2/2); footShape.lineTo(fWtop/2, fH2/2);
+      footShape.lineTo(fWbot/2, -fH2/2); footShape.lineTo(-fWbot/2, -fH2/2); footShape.closePath();
+      var footGeo = new THREE.ExtrudeGeometry(footShape, { depth: fDepth, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2 });
+      var foot = new THREE.Mesh(footGeo, M.rd);
+      foot.rotation.x = -Math.PI/2; foot.position.set(lx, 0.11, -fDepth/2 + 0.05); lg.add(foot);
+      return lg;
+    }
+    var legAngle = 0.13, pivotY = 1.55;
+    var legL = buildLeg(-1);
+    var pivL = new THREE.Group(); pivL.position.y = pivotY; legL.position.y = -pivotY;
+    pivL.rotation.x = legAngle; pivL.add(legL); droid.add(pivL);
+    var legR = buildLeg(1);
+    var pivR = new THREE.Group(); pivR.position.y = pivotY; legR.position.y = -pivotY;
+    pivR.rotation.x = legAngle; pivR.add(legR); droid.add(pivR);
+
+    // 中央脚
+    var cLeg = new THREE.Group(); cLeg.name='center-leg';
+    var cStrutShape = new THREE.Shape();
+    cStrutShape.moveTo(-0.05, 0.275); cStrutShape.lineTo(0.05, 0.275);
+    cStrutShape.lineTo(0.09, -0.275); cStrutShape.lineTo(-0.09, -0.275); cStrutShape.closePath();
+    var cStrutGeo = new THREE.ExtrudeGeometry(cStrutShape, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.005, bevelSize: 0.005, bevelSegments: 1 });
+    var cStrut = new THREE.Mesh(cStrutGeo, M.wh);
+    cStrut.position.set(0, 0.42, 0.08); cLeg.add(cStrut);
+    var cfShape = new THREE.Shape();
+    cfShape.moveTo(-0.09, 0.09); cfShape.lineTo(0.09, 0.09);
+    cfShape.lineTo(0.13, -0.09); cfShape.lineTo(-0.13, -0.09); cfShape.closePath();
+    var cfGeo = new THREE.ExtrudeGeometry(cfShape, { depth: 0.42, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2 });
+    var cFoot = new THREE.Mesh(cfGeo, M.wh);
+    cFoot.rotation.x = -Math.PI/2; cFoot.position.set(0, 0.12, -0.06); cLeg.add(cFoot);
+    droid.add(cLeg);
+
+    droid.rotation.x = -0.30;
+    droid.position.y = 0.01;
+    scene.add(droid);
+
+    // カメラ（頭をアップで中央に）
+    var rY = 0.15, rX = 0.08, cD = 3.0;
+    camera.position.x = Math.sin(rY)*cD;
+    camera.position.z = Math.cos(rY)*cD;
+    camera.position.y = 2.1 + rX*3.5;
+    camera.lookAt(0, 1.5, 0);
+
+    // レンダリング
+    function renderIcons() {
+      [192, 512].forEach(function(size) {
+        renderers[size].render(scene, camera);
+      });
+      document.getElementById('status').textContent = 'レンダリング完了！ダウンロードボタンを押してください。';
+    }
+    renderIcons();
+
+    function downloadIcon(size) {
+      var canvas = document.getElementById('c' + size);
+      var link = document.createElement('a');
+      link.download = 'icon-' + size + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      document.getElementById('status').textContent = 'icon-' + size + '.png をダウンロードしました！';
+    }
+  </script>
+</body>
+</html>
