@@ -91,11 +91,55 @@
     .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
     .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes typBounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /* APIキー設定モーダル */
+    #apikey-modal {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+    }
+    #apikey-modal.open { display: flex; }
+    #apikey-box {
+      background: rgba(14,16,28,0.97); border: 1px solid rgba(80,100,160,0.35);
+      border-radius: 18px; padding: 24px 20px; width: min(360px, calc(100vw - 32px));
+      color: #c8d4f0; font-family: 'Segoe UI', 'Meiryo', sans-serif;
+    }
+    #apikey-box h3 { font-size: 15px; margin-bottom: 10px; color: #e0e8f8; }
+    #apikey-box p  { font-size: 12px; color: #8899bb; margin-bottom: 14px; line-height: 1.6; }
+    #apikey-input {
+      width: 100%; padding: 10px 12px; background: rgba(30,35,60,0.8);
+      border: 1px solid rgba(80,100,160,0.3); border-radius: 10px;
+      color: #c8d4f0; font-size: 13px; outline: none; margin-bottom: 12px;
+    }
+    #apikey-save {
+      width: 100%; padding: 10px; background: linear-gradient(135deg,#b31e22,#d44);
+      border: none; border-radius: 10px; color: #fff; font-size: 14px; cursor: pointer;
+    }
+    #apikey-btn {
+      position: fixed; top: 16px; right: 16px; z-index: 100;
+      background: rgba(10,12,24,0.8); border: 1px solid rgba(80,100,160,0.2);
+      border-radius: 50%; width: 36px; height: 36px; color: #8899bb;
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .apikey-link { color: #6699dd; }
   </style>
 </head>
 <body>
   <canvas id="c"></canvas>
   <div id="info">DRAG TO ROTATE &#x2022; SCROLL TO ZOOM</div>
+
+  <!-- APIキー設定ボタン -->
+  <button id="apikey-btn" title="Gemini APIキー設定">⚙</button>
+
+  <!-- APIキー設定モーダル -->
+  <div id="apikey-modal">
+    <div id="apikey-box">
+      <h3>🔑 Gemini APIキー設定</h3>
+      <p>APIキーはこのデバイスのみに保存されます（GitHubには一切アップされません）。<br>
+        未取得の場合は <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="apikey-link">こちら</a> で無料取得できます。</p>
+      <input id="apikey-input" type="password" placeholder="AIzaSy..." autocomplete="off">
+      <button id="apikey-save">保存して閉じる</button>
+    </div>
+  </div>
 
   <div id="status-bar">
     <div id="status-dot"></div>
@@ -981,13 +1025,57 @@
         return;
       }
 
-      // デフォルト
-      var defaults = [
-        'ピーガガー・ビープ！「できること」と聞いてみてください！',
-        'ビードゥービードゥー！うまく理解できませんでした…「ヘルプ」で機能一覧が見られます！',
-        'ピポポー！天気や時刻ならお任せください！'
-      ];
-      addMsg(defaults[Math.floor(Math.random()*defaults.length)], 'bot');
+      // その他 → Gemini にフォールバック
+      if (localStorage.getItem('rt91_gemini_key')) {
+        callGemini(text);
+      } else {
+        var defaults = [
+          'ピーガガー・ビープ！「できること」と聞いてみてください！',
+          'ビードゥービードゥー！うまく理解できませんでした…「ヘルプ」で機能一覧が見られます！',
+          'ピポポー！天気や時刻ならお任せください！右上 ⚙ でAPIキーを設定するともっと会話できます！'
+        ];
+        addMsg(defaults[Math.floor(Math.random()*defaults.length)], 'bot');
+      }
+    }
+
+    // --- Gemini API ---
+    var geminiHistory = [];
+
+    function callGemini(userText) {
+      var key = localStorage.getItem('rt91_gemini_key') || '';
+      if (!key) {
+        addMsg('ピピー！Gemini APIキーが設定されていません。右上の ⚙ から設定してください。', 'bot');
+        return;
+      }
+      geminiHistory.push({ role: 'user', parts: [{ text: userText }] });
+
+      showTyping();
+      var body = {
+        system_instruction: {
+          parts: [{ text: 'あなたはRT91というアストロメク・ナビゲータードロイドです。R2-D2のようなキャラクターで、日本語で短く親切に答えてください。必要に応じて「ピーピー！」「ビープ！」などの効果音を文頭に入れてください。天気や時刻などを聞かれたら自然に「天気」「時刻」などのキーワードを含む返答をしてください。回答はできるだけ短く（3〜5文以内）。' }]
+        },
+        contents: geminiHistory
+      };
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(key), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(data) {
+        removeTyping();
+        var reply = data.candidates && data.candidates[0] && data.candidates[0].content &&
+          data.candidates[0].content.parts && data.candidates[0].content.parts[0].text;
+        if (!reply) throw new Error('no reply');
+        geminiHistory.push({ role: 'model', parts: [{ text: reply }] });
+        // 履歴が長くなりすぎないよう20ターンに制限
+        if (geminiHistory.length > 40) geminiHistory = geminiHistory.slice(-40);
+        addMsg(reply, 'bot');
+      }).catch(function(e) {
+        removeTyping();
+        addMsg('ピーガガー！通信エラーが発生しました（' + e.message + '）。APIキーを確認してください。', 'bot');
+      });
     }
 
     // --- イベント ---
@@ -1001,6 +1089,23 @@
     chatSend.addEventListener('click', onSend);
     chatInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); onSend(); }
+    });
+
+    // APIキー設定モーダル
+    var apikeyModal = document.getElementById('apikey-modal');
+    var apikeyInput = document.getElementById('apikey-input');
+    document.getElementById('apikey-btn').addEventListener('click', function() {
+      apikeyInput.value = localStorage.getItem('rt91_gemini_key') || '';
+      apikeyModal.classList.add('open');
+    });
+    document.getElementById('apikey-save').addEventListener('click', function() {
+      var k = apikeyInput.value.trim();
+      if (k) localStorage.setItem('rt91_gemini_key', k);
+      apikeyModal.classList.remove('open');
+      addMsg('ピピー！APIキーを保存しました。これで自由に会話できます！', 'bot');
+    });
+    apikeyModal.addEventListener('click', function(e) {
+      if (e.target === apikeyModal) apikeyModal.classList.remove('open');
     });
 
     // 起動時の挨拶
