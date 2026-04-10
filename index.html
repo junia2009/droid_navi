@@ -1056,12 +1056,12 @@
         },
         contents: geminiHistory
       };
-      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(key), {
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       }).then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) return r.json().then(function(e){ throw new Error('HTTP ' + r.status + ': ' + (e.error && e.error.message || '')); });
         return r.json();
       }).then(function(data) {
         removeTyping();
