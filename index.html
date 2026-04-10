@@ -19,11 +19,11 @@
 
     /* チャットUI */
     #chat-panel {
-      position: fixed; bottom: 20px; right: 20px; width: 380px; z-index: 100;
+      position: fixed; bottom: 20px; right: 20px; width: min(380px, calc(100vw - 24px)); z-index: 100;
       font-family: 'Segoe UI', 'Meiryo', sans-serif;
     }
     #chat-log {
-      max-height: 320px; overflow-y: auto; padding: 12px;
+      max-height: min(320px, 36vh); overflow-y: auto; padding: 12px;
       background: rgba(10,12,24,0.85); border-radius: 16px 16px 0 0;
       border: 1px solid rgba(80,100,160,0.25); border-bottom: none;
       scrollbar-width: thin; scrollbar-color: rgba(80,100,160,0.3) transparent;
@@ -724,7 +724,20 @@
     cvs.addEventListener('touchmove', function(e){ if(!isDrag)return; e.preventDefault(); tRY+=(e.touches[0].clientX-pM.x)*0.007; tRX+=(e.touches[0].clientY-pM.y)*0.004; tRX=Math.max(-0.5,Math.min(0.7,tRX)); pM={x:e.touches[0].clientX,y:e.touches[0].clientY}; },{passive:false});
     cvs.addEventListener('touchend', function(){ isDrag=false; });
     cvs.addEventListener('wheel', function(e){ e.preventDefault(); tCD+=e.deltaY*0.004; tCD=Math.max(3,Math.min(9,tCD)); },{passive:false});
-    window.addEventListener('resize', function(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+    function getBaseCamDist() {
+      var aspect = innerWidth / innerHeight;
+      // 縦画面(portrait)ほどカメラを引いてドロイド全体を収める
+      return aspect < 1 ? 4.8 + (1 - aspect) * 2.5 : 4.8;
+    }
+    window.addEventListener('resize', function(){
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      tCD = getBaseCamDist();
+      cD  = tCD;
+    });
+    // 初期カメラ距離もアスペクト比で設定
+    cD = getBaseCamDist(); tCD = cD;
 
     var aP = 0;
     function animate() {
