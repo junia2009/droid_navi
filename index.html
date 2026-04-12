@@ -753,6 +753,108 @@
     droid.position.y = 0.01;
     scene.add(droid);
 
+    // ===== 地球 =====
+    var earthMesh;
+    (function() {
+      // キャンバスで地球テクスチャを生成
+      var size = 512;
+      var cvEarth = document.createElement('canvas');
+      cvEarth.width = size; cvEarth.height = size;
+      var ctx = cvEarth.getContext('2d');
+
+      // 海（ベース青）
+      ctx.fillStyle = '#1a5fa8';
+      ctx.fillRect(0, 0, size, size);
+
+      // 大陸・陸地（緑／茶色）
+      function drawLand(shapes) {
+        shapes.forEach(function(pts) {
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0]*size, pts[0][1]*size);
+          for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]*size, pts[i][1]*size);
+          ctx.closePath();
+          ctx.fill();
+        });
+      }
+
+      // ユーラシア
+      ctx.fillStyle = '#3a7a3a';
+      drawLand([
+        [[0.30,0.22],[0.75,0.18],[0.82,0.30],[0.78,0.48],[0.65,0.50],[0.55,0.44],[0.42,0.46],[0.28,0.40]]
+      ]);
+      // アフリカ
+      ctx.fillStyle = '#4a7a2a';
+      drawLand([
+        [[0.47,0.48],[0.57,0.46],[0.60,0.58],[0.56,0.72],[0.48,0.75],[0.42,0.65],[0.42,0.52]]
+      ]);
+      // 北米
+      ctx.fillStyle = '#5a8a30';
+      drawLand([
+        [[0.05,0.18],[0.22,0.16],[0.28,0.30],[0.22,0.48],[0.12,0.52],[0.02,0.38]]
+      ]);
+      // 南米
+      ctx.fillStyle = '#3a6a20';
+      drawLand([
+        [[0.18,0.52],[0.28,0.50],[0.30,0.62],[0.26,0.78],[0.18,0.80],[0.14,0.70],[0.14,0.58]]
+      ]);
+      // オーストラリア
+      ctx.fillStyle = '#8a7a30';
+      drawLand([
+        [[0.72,0.62],[0.86,0.60],[0.90,0.70],[0.84,0.78],[0.72,0.76],[0.68,0.68]]
+      ]);
+      // 南極
+      ctx.fillStyle = '#ddeeff';
+      drawLand([
+        [[0.0,0.88],[1.0,0.88],[1.0,1.0],[0.0,1.0]]
+      ]);
+      // 北極
+      ctx.fillStyle = '#cce8ff';
+      drawLand([
+        [[0.0,0.0],[1.0,0.0],[1.0,0.10],[0.0,0.10]]
+      ]);
+
+      // 雲のレイヤー（白半透明）
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#ffffff';
+      var cloudDefs = [
+        [0.08,0.28,0.14,0.06],[0.35,0.32,0.18,0.05],[0.60,0.36,0.12,0.04],
+        [0.20,0.58,0.20,0.06],[0.65,0.62,0.16,0.05],[0.80,0.24,0.10,0.04],
+        [0.50,0.68,0.14,0.04],[0.10,0.70,0.12,0.05]
+      ];
+      cloudDefs.forEach(function(c) {
+        ctx.beginPath();
+        ctx.ellipse(c[0]*size, c[1]*size, c[2]*size, c[3]*size, 0, 0, Math.PI*2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1.0;
+
+      var earthTex = new THREE.CanvasTexture(cvEarth);
+
+      // 地球本体
+      var earthGeo = new THREE.SphereGeometry(2.8, 40, 30);
+      var earthMat = new THREE.MeshPhongMaterial({
+        map: earthTex,
+        specular: new THREE.Color(0x224466),
+        shininess: 18
+      });
+      earthMesh = new THREE.Mesh(earthGeo, earthMat);
+      earthMesh.position.set(-14, 7, -18);
+
+      // 大気圏のグロー（薄い青の半透明シェル）
+      var atmGeo = new THREE.SphereGeometry(2.96, 32, 24);
+      var atmMat = new THREE.MeshPhongMaterial({
+        color: 0x5599ff,
+        transparent: true,
+        opacity: 0.13,
+        side: THREE.FrontSide,
+        depthWrite: false
+      });
+      var atmMesh = new THREE.Mesh(atmGeo, atmMat);
+      earthMesh.add(atmMesh);
+
+      scene.add(earthMesh);
+    })();
+
     // ===== 宇宙背景（スターフィールド）=====
     var stars;
     (function() {
@@ -946,6 +1048,9 @@
 
       // --- 星空のゆっくり回転 ---
       if (stars) { stars.rotation.y += 0.00015; stars.rotation.x += 0.00006; }
+
+      // --- 地球の自転 ---
+      if (earthMesh) { earthMesh.rotation.y += 0.0008; }
 
       renderer.render(scene, camera);
     }
