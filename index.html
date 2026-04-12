@@ -896,8 +896,9 @@
 
       // 中緯度前線帯の雲列（弧状に並んだクラスター）
       function drawFrontal(cx, cy, len, spread, angle, alpha, n) {
+        var denom = n > 1 ? n - 1 : 1;
         for (var i = 0; i < n; i++) {
-          var t  = (i / (n - 1) - 0.5) * len;
+          var t  = (i / denom - 0.5) * len;
           var px = cx + Math.cos(angle) * t + (Math.random() - 0.5) * spread * 0.55;
           var py = cy + Math.sin(angle) * t + (Math.random() - 0.5) * spread * 0.55;
           var rx = spread * (0.32 + Math.random() * 0.38);
