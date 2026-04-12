@@ -180,96 +180,133 @@
     var rimL = new THREE.DirectionalLight(0x5577aa, 0.25); rimL.position.set(0, 3, -5); scene.add(rimL);
     var botL = new THREE.PointLight(0x334455, 0.2, 6); botL.position.set(0, -0.3, 3); scene.add(botL);
 
-    // ===== 地面（中世ヨーロッパ風石畳テクスチャ） =====
-    // 石の配置データを事前生成（カラーマップとバンプマップで共有）
-    var cobbleStones = (function() {
-      var S = 512, rows = 10, cols = 8, stones = [];
-      for (var r = 0; r < rows; r++) {
-        var rowOff = (r % 2) * (S / cols * 0.5);
-        for (var c = 0; c < cols + 1; c++) {
-          var bw = S / cols, bh = S / rows;
-          stones.push({
-            x: c * bw + rowOff + (Math.random() - 0.5) * bw * 0.18,
-            y: r * bh + (Math.random() - 0.5) * bh * 0.15,
-            w: bw * (0.82 + Math.random() * 0.14),
-            h: bh * (0.78 + Math.random() * 0.16),
-            lum: 140 + Math.floor(Math.random() * 40)
-          });
-        }
-      }
-      return { size: S, stones: stones };
-    })();
-
-    function drawCobbleStone(cx, st) {
-      var cr = Math.min(st.w, st.h) * 0.18;
-      var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
-      var w = st.w - 4, h = st.h - 4;
-      cx.beginPath();
-      cx.moveTo(x + cr, y);
-      cx.lineTo(x + w - cr, y);
-      cx.quadraticCurveTo(x + w, y, x + w, y + cr);
-      cx.lineTo(x + w, y + h - cr);
-      cx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
-      cx.lineTo(x + cr, y + h);
-      cx.quadraticCurveTo(x, y + h, x, y + h - cr);
-      cx.lineTo(x, y + cr);
-      cx.quadraticCurveTo(x, y, x + cr, y);
-      cx.closePath();
-    }
-
-    var cobbleTex = (function() {
-      var S = cobbleStones.size, cv = document.createElement('canvas');
+    // ===== 地面（神殿風タイルテクスチャ） =====
+    var tileTex = (function() {
+      var S = 512, cv = document.createElement('canvas');
       cv.width = cv.height = S;
       var cx = cv.getContext('2d');
-      cx.fillStyle = '#1a1a20';
+      // 大理石風ベース（温かみのあるクリーム〜アイボリー）
+      var baseGrd = cx.createLinearGradient(0, 0, S, S);
+      baseGrd.addColorStop(0, '#d6cfc4');
+      baseGrd.addColorStop(0.5, '#e2dbd0');
+      baseGrd.addColorStop(1, '#cec6ba');
+      cx.fillStyle = baseGrd;
       cx.fillRect(0, 0, S, S);
-      cobbleStones.stones.forEach(function(st) {
-        var base = 32 + Math.floor(Math.random() * 30);
-        var tint = Math.floor(Math.random() * 10);
-        cx.fillStyle = 'rgb(' + (base + tint) + ',' + (base + Math.floor(tint * 0.8)) + ',' + (base - 2 + Math.floor(Math.random() * 8)) + ')';
-        drawCobbleStone(cx, st);
-        cx.fill();
-        // ハイライト＋ノイズ
-        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2, w = st.w - 4, h = st.h - 4;
-        cx.save(); cx.clip();
-        var grd = cx.createLinearGradient(x, y, x + w * 0.6, y + h * 0.6);
-        grd.addColorStop(0, 'rgba(180,180,190,0.08)');
-        grd.addColorStop(1, 'rgba(0,0,0,0.12)');
-        cx.fillStyle = grd;
-        cx.fillRect(x, y, w, h);
-        for (var i = 0; i < 40; i++) {
-          var nx = x + Math.random() * w, ny = y + Math.random() * h;
-          cx.fillStyle = 'rgba(' + (Math.random() > 0.5 ? '200,200,210' : '10,10,15') + ',' + (0.03 + Math.random() * 0.06) + ')';
-          cx.fillRect(nx, ny, 1 + Math.random() * 2, 1 + Math.random() * 2);
+      // 大理石の脈模様
+      for (var v = 0; v < 18; v++) {
+        cx.beginPath();
+        var vx = Math.random() * S, vy = Math.random() * S;
+        cx.moveTo(vx, vy);
+        for (var seg = 0; seg < 6; seg++) {
+          vx += (Math.random() - 0.5) * 120;
+          vy += (Math.random() - 0.5) * 120;
+          cx.lineTo(vx, vy);
         }
-        cx.restore();
-      });
+        var vAlpha = 0.03 + Math.random() * 0.06;
+        cx.strokeStyle = Math.random() > 0.5
+          ? 'rgba(160,140,120,' + vAlpha + ')'
+          : 'rgba(180,170,155,' + vAlpha + ')';
+        cx.lineWidth = 0.5 + Math.random() * 2;
+        cx.stroke();
+      }
+      // タイルグリッド（正方形タイル、目地あり）
+      var tileCount = 4, tileSize = S / tileCount, groutW = 3;
+      // 目地（溝）を描画
+      cx.fillStyle = '#8a8070';
+      for (var gi = 0; gi <= tileCount; gi++) {
+        cx.fillRect(gi * tileSize - groutW / 2, 0, groutW, S);
+        cx.fillRect(0, gi * tileSize - groutW / 2, S, groutW);
+      }
+      // 各タイルに微妙な色差と光沢グラデーション
+      for (var tr = 0; tr < tileCount; tr++) {
+        for (var tc = 0; tc < tileCount; tc++) {
+          var tx = tc * tileSize + groutW / 2;
+          var ty = tr * tileSize + groutW / 2;
+          var tw = tileSize - groutW;
+          var th = tileSize - groutW;
+          // タイルごとの微妙な色ばらつき
+          var hueShift = Math.floor(Math.random() * 8) - 4;
+          var br = 200 + hueShift + Math.floor(Math.random() * 15);
+          var bg = 190 + hueShift + Math.floor(Math.random() * 12);
+          var bb = 175 + hueShift + Math.floor(Math.random() * 10);
+          cx.fillStyle = 'rgba(' + br + ',' + bg + ',' + bb + ',0.25)';
+          cx.fillRect(tx, ty, tw, th);
+          // エッジベベル（光沢ハイライト上・左）
+          var bevelGrdT = cx.createLinearGradient(tx, ty, tx, ty + 8);
+          bevelGrdT.addColorStop(0, 'rgba(255,252,245,0.18)');
+          bevelGrdT.addColorStop(1, 'rgba(255,252,245,0)');
+          cx.fillStyle = bevelGrdT;
+          cx.fillRect(tx, ty, tw, 8);
+          var bevelGrdL = cx.createLinearGradient(tx, ty, tx + 8, ty);
+          bevelGrdL.addColorStop(0, 'rgba(255,252,245,0.12)');
+          bevelGrdL.addColorStop(1, 'rgba(255,252,245,0)');
+          cx.fillStyle = bevelGrdL;
+          cx.fillRect(tx, ty, 8, th);
+          // エッジシャドウ（下・右）
+          var bevelGrdB = cx.createLinearGradient(tx, ty + th - 6, tx, ty + th);
+          bevelGrdB.addColorStop(0, 'rgba(80,70,55,0)');
+          bevelGrdB.addColorStop(1, 'rgba(80,70,55,0.12)');
+          cx.fillStyle = bevelGrdB;
+          cx.fillRect(tx, ty + th - 6, tw, 6);
+          var bevelGrdR = cx.createLinearGradient(tx + tw - 6, ty, tx + tw, ty);
+          bevelGrdR.addColorStop(0, 'rgba(80,70,55,0)');
+          bevelGrdR.addColorStop(1, 'rgba(80,70,55,0.08)');
+          cx.fillStyle = bevelGrdR;
+          cx.fillRect(tx + tw - 6, ty, 6, th);
+          // 微細なノイズ（石の質感）
+          for (var ni = 0; ni < 60; ni++) {
+            var nx = tx + Math.random() * tw, ny = ty + Math.random() * th;
+            cx.fillStyle = 'rgba(' + (Math.random() > 0.5 ? '240,235,225' : '150,140,125') + ',' + (0.02 + Math.random() * 0.05) + ')';
+            cx.fillRect(nx, ny, 1 + Math.random(), 1 + Math.random());
+          }
+          // 装飾パターン（中心に控えめなダイヤモンド模様）
+          if ((tr + tc) % 2 === 0) {
+            var cx0 = tx + tw / 2, cy0 = ty + th / 2, dSize = tw * 0.18;
+            cx.beginPath();
+            cx.moveTo(cx0, cy0 - dSize);
+            cx.lineTo(cx0 + dSize, cy0);
+            cx.lineTo(cx0, cy0 + dSize);
+            cx.lineTo(cx0 - dSize, cy0);
+            cx.closePath();
+            cx.strokeStyle = 'rgba(170,155,130,0.12)';
+            cx.lineWidth = 1;
+            cx.stroke();
+          }
+        }
+      }
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
       return tex;
     })();
 
-    var cobbleBump = (function() {
-      var S = cobbleStones.size, cv = document.createElement('canvas');
+    var tileBump = (function() {
+      var S = 512, cv = document.createElement('canvas');
       cv.width = cv.height = S;
       var cx = cv.getContext('2d');
-      cx.fillStyle = '#000';
+      var tileCount = 4, tileSize = S / tileCount, groutW = 3;
+      // タイル面は明るく平坦、目地は暗く凹み
+      cx.fillStyle = '#b0b0b0';
       cx.fillRect(0, 0, S, S);
-      cobbleStones.stones.forEach(function(st) {
-        cx.fillStyle = 'rgb(' + st.lum + ',' + st.lum + ',' + st.lum + ')';
-        drawCobbleStone(cx, st);
-        cx.fill();
-        // 中央を明るく（凸に見せる）
-        var grd = cx.createRadialGradient(st.x, st.y, 0, st.x, st.y, Math.max(st.w, st.h) * 0.45);
-        grd.addColorStop(0, 'rgba(255,255,255,0.18)');
-        grd.addColorStop(1, 'rgba(0,0,0,0.15)');
-        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
-        cx.save(); cx.clip();
-        cx.fillStyle = grd;
-        cx.fillRect(x, y, st.w - 4, st.h - 4);
-        cx.restore();
-      });
+      // 目地の凹み
+      cx.fillStyle = '#404040';
+      for (var gi = 0; gi <= tileCount; gi++) {
+        cx.fillRect(gi * tileSize - groutW / 2, 0, groutW, S);
+        cx.fillRect(0, gi * tileSize - groutW / 2, S, groutW);
+      }
+      // 各タイルの中央を少し膨らませる
+      for (var tr = 0; tr < tileCount; tr++) {
+        for (var tc = 0; tc < tileCount; tc++) {
+          var tx = tc * tileSize + tileSize / 2;
+          var ty = tr * tileSize + tileSize / 2;
+          var rad = tileSize * 0.42;
+          var grd = cx.createRadialGradient(tx, ty, 0, tx, ty, rad);
+          grd.addColorStop(0, 'rgba(255,255,255,0.10)');
+          grd.addColorStop(1, 'rgba(0,0,0,0.05)');
+          cx.fillStyle = grd;
+          cx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize);
+        }
+      }
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
@@ -277,12 +314,12 @@
     })();
 
     var flMat = new THREE.MeshStandardMaterial({
-      map: cobbleTex,
-      bumpMap: cobbleBump,
-      bumpScale: 0.35,
-      roughness: 0.85,
-      metalness: 0.05,
-      color: 0xcccccc
+      map: tileTex,
+      bumpMap: tileBump,
+      bumpScale: 0.15,
+      roughness: 0.35,
+      metalness: 0.08,
+      color: 0xe8e0d4
     });
     var fl = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), flMat);
     fl.rotation.x = -Math.PI/2; fl.receiveShadow = true; scene.add(fl);
