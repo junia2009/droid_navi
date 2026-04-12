@@ -775,10 +775,10 @@
       starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       var starMat = new THREE.PointsMaterial({
-        size: 0.10,
+        size: 0.22,
         vertexColors: true,
         transparent: true,
-        opacity: 0.90,
+        opacity: 1.0,
         sizeAttenuation: true
       });
       stars = new THREE.Points(starGeo, starMat);
