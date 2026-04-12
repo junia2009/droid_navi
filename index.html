@@ -753,104 +753,193 @@
     droid.position.y = 0.01;
     scene.add(droid);
 
-    // ===== 地球 =====
-    var earthMesh;
+    // ===== 地球 (改良版) =====
+    var earthMesh, cloudMesh;
     (function() {
-      // キャンバスで地球テクスチャを生成
-      var size = 512;
-      var cvEarth = document.createElement('canvas');
-      cvEarth.width = size; cvEarth.height = size;
-      var ctx = cvEarth.getContext('2d');
+      var W = 1024, H = 512;
 
-      // 海（ベース青）
-      ctx.fillStyle = '#1a5fa8';
-      ctx.fillRect(0, 0, size, size);
+      // 経緯度 [lon, lat] → テクスチャ座標 (正距円筒図法)
+      function uv(lon, lat) { return [(lon + 180) / 360 * W, (90 - lat) / 180 * H]; }
 
-      // 大陸・陸地（緑／茶色）
-      function drawLand(shapes) {
-        shapes.forEach(function(pts) {
-          ctx.beginPath();
-          ctx.moveTo(pts[0][0]*size, pts[0][1]*size);
-          for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]*size, pts[i][1]*size);
-          ctx.closePath();
-          ctx.fill();
-        });
+      function poly(ctx, pts, col, alpha) {
+        if (alpha !== undefined) ctx.globalAlpha = alpha;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        var p = uv(pts[0][0], pts[0][1]);
+        ctx.moveTo(p[0], p[1]);
+        for (var i = 1; i < pts.length; i++) { p = uv(pts[i][0], pts[i][1]); ctx.lineTo(p[0], p[1]); }
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
       }
 
-      // ユーラシア
-      ctx.fillStyle = '#3a7a3a';
-      drawLand([
-        [[0.30,0.22],[0.75,0.18],[0.82,0.30],[0.78,0.48],[0.65,0.50],[0.55,0.44],[0.42,0.46],[0.28,0.40]]
-      ]);
-      // アフリカ
-      ctx.fillStyle = '#4a7a2a';
-      drawLand([
-        [[0.47,0.48],[0.57,0.46],[0.60,0.58],[0.56,0.72],[0.48,0.75],[0.42,0.65],[0.42,0.52]]
-      ]);
-      // 北米
-      ctx.fillStyle = '#5a8a30';
-      drawLand([
-        [[0.05,0.18],[0.22,0.16],[0.28,0.30],[0.22,0.48],[0.12,0.52],[0.02,0.38]]
-      ]);
-      // 南米
-      ctx.fillStyle = '#3a6a20';
-      drawLand([
-        [[0.18,0.52],[0.28,0.50],[0.30,0.62],[0.26,0.78],[0.18,0.80],[0.14,0.70],[0.14,0.58]]
-      ]);
-      // オーストラリア
-      ctx.fillStyle = '#8a7a30';
-      drawLand([
-        [[0.72,0.62],[0.86,0.60],[0.90,0.70],[0.84,0.78],[0.72,0.76],[0.68,0.68]]
-      ]);
-      // 南極
-      ctx.fillStyle = '#ddeeff';
-      drawLand([
-        [[0.0,0.88],[1.0,0.88],[1.0,1.0],[0.0,1.0]]
-      ]);
-      // 北極
-      ctx.fillStyle = '#cce8ff';
-      drawLand([
-        [[0.0,0.0],[1.0,0.0],[1.0,0.10],[0.0,0.10]]
-      ]);
+      // 陸地ポリゴン定義 (経度, 緯度) ─ 主要地形をより詳細に
+      var lands = [
+        // ── ユーラシア大陸（基本）
+        { c:'#3d7a3a', pts:[[-10,36],[0,38],[10,44],[18,50],[28,50],[38,46],[50,42],[60,44],[72,44],[82,38],[92,32],[100,24],[108,18],[114,18],[120,24],[128,32],[136,38],[140,40],[144,46],[140,52],[132,58],[124,65],[110,70],[96,72],[82,70],[68,66],[54,68],[42,65],[32,60],[22,55],[12,58],[4,56],[-2,52],[-8,44]] },
+        // ユーラシア砂漠帯（サハラ東〜アラビア〜中央アジア）
+        { c:'#c4a040', pts:[[36,32],[52,26],[64,22],[76,22],[88,26],[96,30],[86,34],[74,36],[62,38],[48,36],[38,34]] },
+        // ヒマラヤ・チベット高原
+        { c:'#9a9070', pts:[[74,28],[82,28],[92,28],[100,26],[96,22],[88,24],[80,26],[76,28]] },
+        // インド亜大陸
+        { c:'#3d7a3a', pts:[[66,28],[72,28],[76,24],[78,20],[80,14],[78,8],[74,8],[70,14],[68,22],[66,26]] },
+        // 東南アジア半島
+        { c:'#2d6a2a', pts:[[98,20],[104,18],[108,14],[106,8],[102,4],[98,6],[96,10],[98,16]] },
+        // インドシナ
+        { c:'#2d6a2a', pts:[[100,22],[110,22],[114,18],[110,14],[104,12],[100,14]] },
+        // 日本列島（本州）
+        { c:'#3d7a3a', pts:[[130,32],[132,34],[134,34],[136,36],[138,38],[140,40],[142,40],[141,38],[138,34],[134,32],[132,32]] },
+        // 日本列島（北海道）
+        { c:'#3d7a3a', pts:[[140,44],[143,44],[144,43],[144,42],[142,42],[140,42]] },
+        // 朝鮮半島
+        { c:'#3d7a3a', pts:[[126,34],[128,36],[130,36],[130,34],[128,32],[126,32],[126,34]] },
 
-      // 雲のレイヤー（白半透明）
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#ffffff';
-      var cloudDefs = [
-        [0.08,0.28,0.14,0.06],[0.35,0.32,0.18,0.05],[0.60,0.36,0.12,0.04],
-        [0.20,0.58,0.20,0.06],[0.65,0.62,0.16,0.05],[0.80,0.24,0.10,0.04],
-        [0.50,0.68,0.14,0.04],[0.10,0.70,0.12,0.05]
+        // ── アフリカ大陸
+        { c:'#4a8030', pts:[[-16,22],[-14,14],[-16,8],[-14,2],[-10,-4],[-12,-10],[-14,-16],[-16,-24],[-16,-34],[-12,-30],[-6,-22],[2,-12],[6,-2],[8,4],[14,4],[20,0],[26,-6],[32,-14],[34,-20],[30,-30],[24,-34],[16,-36],[10,-32],[4,-24],[2,-14],[4,-6],[8,2],[14,8],[20,12],[28,18],[34,22],[38,18],[42,12],[44,8],[42,4],[38,0],[34,4],[38,10],[42,14],[40,20],[34,24],[26,28],[18,24],[12,20],[6,18],[0,16],[-8,16],[-14,18]] },
+        // サハラ砂漠
+        { c:'#d4a848', pts:[[-14,16],[0,16],[14,16],[26,16],[36,14],[38,18],[28,20],[18,22],[8,20],[0,18],[-8,18],[-14,18]] },
+        // コンゴ熱帯雨林
+        { c:'#1a5a1a', pts:[[10,4],[16,0],[24,-2],[30,0],[28,4],[22,6],[14,6]] },
+        // 東アフリカ高原
+        { c:'#5a8828', pts:[[34,-4],[38,0],[42,4],[40,8],[36,10],[32,6],[30,2],[32,-2]] },
+
+        // ── 北アメリカ大陸
+        { c:'#4a8834', pts:[[-168,62],[-158,60],[-148,60],[-136,56],[-126,48],[-122,38],[-116,30],[-108,22],[-100,18],[-94,16],[-90,16],[-84,10],[-82,10],[-78,22],[-74,30],[-72,36],[-68,42],[-64,44],[-60,46],[-64,50],[-60,52],[-64,56],[-68,60],[-76,64],[-88,64],[-100,62],[-114,60],[-128,58],[-138,60],[-148,64],[-160,66],[-168,66]] },
+        // 北米南西部砂漠
+        { c:'#c09038', pts:[[-118,36],[-110,30],[-106,26],[-100,26],[-100,32],[-108,36],[-116,36]] },
+        // ロッキー山脈
+        { c:'#7a8860', pts:[[-120,46],[-116,40],[-112,34],[-108,30],[-110,32],[-114,38],[-118,44]] },
+        // カナダ北部針葉樹帯
+        { c:'#3a6830', pts:[[-100,62],[-80,62],[-68,58],[-64,56],[-68,60],[-76,64],[-88,64],[-100,62]] },
+
+        // ── 南アメリカ大陸
+        { c:'#3a7a28', pts:[[-80,10],[-74,8],[-68,4],[-60,0],[-52,-4],[-52,-10],[-48,-18],[-50,-26],[-52,-34],[-56,-40],[-62,-44],[-66,-46],[-68,-50],[-66,-52],[-62,-50],[-58,-44],[-54,-34],[-52,-22],[-50,-12],[-50,-4],[-54,2],[-60,6],[-66,6],[-72,8],[-76,8]] },
+        // アンデス山脈
+        { c:'#7a7050', pts:[[-78,8],[-76,2],[-74,-8],[-72,-18],[-68,-28],[-68,-36],[-70,-40],[-72,-38],[-70,-28],[-72,-18],[-74,-8],[-78,4]] },
+        // アマゾン熱帯雨林
+        { c:'#1a5a1a', pts:[[-72,4],[-60,4],[-52,-2],[-50,-8],[-56,-8],[-60,-4],[-66,-2],[-74,2]] },
+        // パンパス草原
+        { c:'#7a9040', pts:[[-64,-28],[-58,-28],[-52,-30],[-52,-36],[-58,-38],[-64,-36],[-66,-32]] },
+
+        // ── オーストラリア大陸
+        { c:'#8a7030', pts:[[114,-22],[120,-18],[126,-14],[132,-12],[136,-12],[140,-16],[144,-18],[148,-22],[150,-28],[152,-34],[148,-38],[142,-38],[136,-36],[130,-32],[124,-28],[118,-24],[114,-24],[112,-22]] },
+        // オーストラリア中央砂漠
+        { c:'#c8902a', pts:[[122,-20],[132,-16],[140,-18],[144,-22],[138,-28],[128,-28],[120,-24]] },
+        // ニュージーランド（南島）
+        { c:'#3d7a3a', pts:[[166,-46],[170,-44],[172,-42],[174,-40],[174,-38],[172,-36],[170,-36],[168,-38],[166,-40],[164,-42],[166,-46]] },
+        // ニュージーランド（北島）
+        { c:'#3d7a3a', pts:[[172,-36],[174,-34],[178,-34],[178,-38],[176,-40],[174,-40],[172,-38],[172,-36]] },
+
+        // ── グリーンランド
+        { c:'#b8d0e0', pts:[[-60,82],[-44,84],[-24,84],[-18,80],[-20,74],[-26,68],[-34,66],[-44,66],[-48,70],[-52,74],[-56,78],[-58,80]] },
+
+        // ── 北極圏・南極圏
+        { c:'#c8e0f0', pts:[[-180,68],[180,68],[180,90],[-180,90]] },
+        { c:'#ddeeff', pts:[[-180,76],[180,76],[180,90],[-180,90]] },
+        { c:'#eef6ff', pts:[[-180,82],[180,82],[180,90],[-180,90]] },
+        { c:'#c0d8ee', pts:[[-180,-66],[180,-66],[180,-90],[-180,-90]] },
+        { c:'#d8eeff', pts:[[-180,-74],[180,-74],[180,-90],[-180,-90]] },
+        { c:'#eaf4ff', pts:[[-180,-80],[180,-80],[180,-90],[-180,-90]] },
       ];
-      cloudDefs.forEach(function(c) {
-        ctx.beginPath();
-        ctx.ellipse(c[0]*size, c[1]*size, c[2]*size, c[3]*size, 0, 0, Math.PI*2);
-        ctx.fill();
-      });
-      ctx.globalAlpha = 1.0;
 
-      var earthTex = new THREE.CanvasTexture(cvEarth);
+      // ── 地球テクスチャ（昼）──
+      var cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      var c = cv.getContext('2d');
+
+      // 深海グラデーション
+      var og = c.createLinearGradient(0, 0, 0, H);
+      og.addColorStop(0,    '#091428');
+      og.addColorStop(0.12, '#0c2450');
+      og.addColorStop(0.42, '#0d3470');
+      og.addColorStop(0.50, '#0f3e88');
+      og.addColorStop(0.58, '#0d3470');
+      og.addColorStop(0.88, '#0c2450');
+      og.addColorStop(1,    '#091428');
+      c.fillStyle = og;
+      c.fillRect(0, 0, W, H);
+
+      // 陸地描画
+      lands.forEach(function(l) { poly(c, l.pts, l.c); });
+
+      // ── スペキュラーマップ（海＝高反射、陸＝低反射）──
+      var cvS = document.createElement('canvas');
+      cvS.width = W; cvS.height = H;
+      var s = cvS.getContext('2d');
+      s.fillStyle = '#aaaaaa';  // 海面は中程度の反射
+      s.fillRect(0, 0, W, H);
+      lands.forEach(function(l) { poly(s, l.pts, '#0d0d0d'); }); // 陸は低反射
+
+      // ── 雲テクスチャ ──
+      var cvC = document.createElement('canvas');
+      cvC.width = W; cvC.height = H;
+      var cc = cvC.getContext('2d');
+      cc.clearRect(0, 0, W, H);
+      // 緯度帯ごとの雲: [中心緯度, 広がり, 数, 幅比, 高さ比]
+      var cbands = [
+        [55, 12, 8,  0.11, 0.035],
+        [25, 10, 7,  0.09, 0.030],
+        [0,  14, 10, 0.13, 0.048],
+        [-25,10, 7,  0.09, 0.030],
+        [-55,12, 8,  0.11, 0.035],
+      ];
+      cbands.forEach(function(b) {
+        for (var i = 0; i < b[2]; i++) {
+          var lon = (i / b[2]) * 360 - 180 + (Math.random() - 0.5) * 26;
+          var lat = b[0] + (Math.random() - 0.5) * b[1] * 2;
+          var p   = uv(lon, lat);
+          var rx  = b[3] * W * (0.7 + Math.random() * 0.5);
+          var ry  = b[4] * H * (0.6 + Math.random() * 0.6);
+          var a   = 0.55 + Math.random() * 0.35;
+          cc.globalAlpha = a;
+          cc.fillStyle = '#ffffff';
+          cc.beginPath(); cc.ellipse(p[0], p[1], rx, ry, (Math.random() - 0.5) * 0.4, 0, Math.PI * 2); cc.fill();
+          cc.globalAlpha = a * 0.45;
+          cc.beginPath(); cc.ellipse(p[0] + rx * 0.55, p[1], rx * 0.5, ry * 0.75, 0, 0, Math.PI * 2); cc.fill();
+          cc.beginPath(); cc.ellipse(p[0] - rx * 0.55, p[1], rx * 0.5, ry * 0.75, 0, 0, Math.PI * 2); cc.fill();
+        }
+      });
+      cc.globalAlpha = 1;
+
+      var earthTex = new THREE.CanvasTexture(cv);
+      var specTex  = new THREE.CanvasTexture(cvS);
+      var cloudTex = new THREE.CanvasTexture(cvC);
 
       // 地球本体
-      var earthGeo = new THREE.SphereGeometry(2.8, 40, 30);
+      var earthGeo = new THREE.SphereGeometry(2.8, 64, 48);
       var earthMat = new THREE.MeshPhongMaterial({
         map: earthTex,
-        specular: new THREE.Color(0x224466),
-        shininess: 18
+        specularMap: specTex,
+        specular: new THREE.Color(0x334455),
+        shininess: 40,
       });
       earthMesh = new THREE.Mesh(earthGeo, earthMat);
+      earthMesh.rotation.z = 0.409;  // 地軸傾き（23.4°）
       earthMesh.position.set(-14, 7, -18);
 
-      // 大気圏のグロー（薄い青の半透明シェル）
-      var atmGeo = new THREE.SphereGeometry(2.96, 32, 24);
-      var atmMat = new THREE.MeshPhongMaterial({
-        color: 0x5599ff,
-        transparent: true,
-        opacity: 0.13,
-        side: THREE.FrontSide,
-        depthWrite: false
-      });
-      var atmMesh = new THREE.Mesh(atmGeo, atmMat);
-      earthMesh.add(atmMesh);
+      // 雲レイヤー（地球表面より少し大きい球）
+      cloudMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(2.84, 40, 32),
+        new THREE.MeshPhongMaterial({
+          map: cloudTex,
+          transparent: true,
+          opacity: 0.88,
+          depthWrite: false,
+        })
+      );
+      earthMesh.add(cloudMesh);
+
+      // 大気圏 内層グロー
+      earthMesh.add(new THREE.Mesh(
+        new THREE.SphereGeometry(2.90, 32, 24),
+        new THREE.MeshPhongMaterial({ color: 0x2244aa, transparent: true, opacity: 0.07, side: THREE.FrontSide, depthWrite: false })
+      ));
+
+      // 大気圏 外層リムグロー
+      earthMesh.add(new THREE.Mesh(
+        new THREE.SphereGeometry(3.10, 32, 24),
+        new THREE.MeshPhongMaterial({ color: 0x2266ff, transparent: true, opacity: 0.16, side: THREE.BackSide, depthWrite: false })
+      ));
 
       scene.add(earthMesh);
     })();
@@ -1050,7 +1139,10 @@
       if (stars) { stars.rotation.y += 0.00015; stars.rotation.x += 0.00006; }
 
       // --- 地球の自転 ---
-      if (earthMesh) { earthMesh.rotation.y += 0.0008; }
+      if (earthMesh) {
+        earthMesh.rotation.y += 0.0008;
+        if (cloudMesh) { cloudMesh.rotation.y += 0.0003; } // 雲は地球本体より遅めに回転（相対的にゆっくり流れる）
+      }
 
       renderer.render(scene, camera);
     }
