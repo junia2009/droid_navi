@@ -875,30 +875,116 @@
       cvC.width = W; cvC.height = H;
       var cc = cvC.getContext('2d');
       cc.clearRect(0, 0, W, H);
-      // 緯度帯ごとの雲: [中心緯度, 広がり, 数, 幅比, 高さ比]
-      var cbands = [
-        [55, 12, 8,  0.11, 0.035],
-        [25, 10, 7,  0.09, 0.030],
-        [0,  14, 10, 0.13, 0.048],
-        [-25,10, 7,  0.09, 0.030],
-        [-55,12, 8,  0.11, 0.035],
+
+      // ラジアルグラデーションで柔らかい雲の塊を描く
+      function drawCloudBlob(x, y, rx, ry, rot, alpha) {
+        cc.save();
+        cc.translate(x, y);
+        cc.rotate(rot);
+        var g = cc.createRadialGradient(0, 0, 0, 0, 0, rx);
+        g.addColorStop(0,    'rgba(255,255,255,' + alpha.toFixed(2) + ')');
+        g.addColorStop(0.40, 'rgba(255,255,255,' + (alpha * 0.72).toFixed(2) + ')');
+        g.addColorStop(0.75, 'rgba(255,255,255,' + (alpha * 0.22).toFixed(2) + ')');
+        g.addColorStop(1,    'rgba(255,255,255,0)');
+        cc.fillStyle = g;
+        cc.scale(1, ry / rx);
+        cc.beginPath();
+        cc.arc(0, 0, rx, 0, Math.PI * 2);
+        cc.fill();
+        cc.restore();
+      }
+
+      // 中緯度前線帯の雲列（弧状に並んだクラスター）
+      function drawFrontal(cx, cy, len, spread, angle, alpha, n) {
+        for (var i = 0; i < n; i++) {
+          var t  = (i / (n - 1) - 0.5) * len;
+          var px = cx + Math.cos(angle) * t + (Math.random() - 0.5) * spread * 0.55;
+          var py = cy + Math.sin(angle) * t + (Math.random() - 0.5) * spread * 0.55;
+          var rx = spread * (0.32 + Math.random() * 0.38);
+          var ry = spread * (0.16 + Math.random() * 0.20);
+          drawCloudBlob(px, py, rx, ry, (Math.random() - 0.5) * 0.5, alpha * (0.55 + Math.random() * 0.45));
+        }
+      }
+
+      // 台風・低気圧の渦状雲
+      function drawCyclone(cx, cy, r, alpha) {
+        for (var t = 0.12; t < 2.0; t += 0.09) {
+          var ang  = t * Math.PI * 1.55;
+          var dist = t * r * 0.50;
+          var px   = cx + Math.cos(ang) * dist;
+          var py   = cy + Math.sin(ang) * dist * 0.52;
+          var sz   = r * 0.11 * (0.45 + t * 0.48);
+          drawCloudBlob(px, py, sz, sz * 0.52, ang, alpha * Math.min(1, t * 0.72));
+        }
+      }
+
+      // ── ITCZ（熱帯収束帯）: 赤道付近の積乱雲クラスター
+      var itcz = [
+        [-165, 5], [-135, 7], [-105, 3], [-75, 6], [-45, 4],
+        [-15, 7], [15, 4], [45, 6], [75, 3], [105, 7],
+        [135, 5], [160, 6],
       ];
-      cbands.forEach(function(b) {
-        for (var i = 0; i < b[2]; i++) {
-          var lon = (i / b[2]) * 360 - 180 + (Math.random() - 0.5) * 26;
-          var lat = b[0] + (Math.random() - 0.5) * b[1] * 2;
-          var p   = uv(lon, lat);
-          var rx  = b[3] * W * (0.7 + Math.random() * 0.5);
-          var ry  = b[4] * H * (0.6 + Math.random() * 0.6);
-          var a   = 0.55 + Math.random() * 0.35;
-          cc.globalAlpha = a;
-          cc.fillStyle = '#ffffff';
-          cc.beginPath(); cc.ellipse(p[0], p[1], rx, ry, (Math.random() - 0.5) * 0.4, 0, Math.PI * 2); cc.fill();
-          cc.globalAlpha = a * 0.45;
-          cc.beginPath(); cc.ellipse(p[0] + rx * 0.55, p[1], rx * 0.5, ry * 0.75, 0, 0, Math.PI * 2); cc.fill();
-          cc.beginPath(); cc.ellipse(p[0] - rx * 0.55, p[1], rx * 0.5, ry * 0.75, 0, 0, Math.PI * 2); cc.fill();
+      itcz.forEach(function(ll) {
+        var llon = ll[0] + (Math.random() - 0.5) * 14;
+        var llat = ll[1] + (Math.random() - 0.5) * 5;
+        var p    = uv(llon, llat);
+        var rx   = W * (0.040 + Math.random() * 0.022);
+        var ry   = H * (0.015 + Math.random() * 0.010);
+        var a    = 0.42 + Math.random() * 0.22;
+        drawCloudBlob(p[0], p[1], rx, ry, (Math.random() - 0.5) * 0.4, a);
+        // 小さな衛星雲
+        for (var j = 0; j < 2; j++) {
+          drawCloudBlob(
+            p[0] + (Math.random() - 0.5) * rx * 1.3,
+            p[1] + (Math.random() - 0.5) * ry * 1.8,
+            rx * (0.22 + Math.random() * 0.22),
+            ry * (0.22 + Math.random() * 0.22),
+            (Math.random() - 0.5) * 0.5,
+            a * (0.35 + Math.random() * 0.30)
+          );
         }
       });
+
+      // ── 中緯度前線帯（北半球: 40〜60°N）
+      [
+        [-25, 52, 125, 25, 0.28],
+        [ 55, 48, 118, 23, 0.32],
+        [155, 50, 122, 24, 0.30],
+        [-128,53, 112, 22, 0.27],
+      ].forEach(function(b) {
+        var p = uv(b[0], b[1]);
+        drawFrontal(p[0], p[1], b[2], b[3], b[4], 0.52 + Math.random() * 0.14, 9);
+      });
+
+      // ── 中緯度前線帯（南半球: 40〜60°S）
+      [
+        [ -55,-52, 128, 27, -0.30],
+        [  25,-50, 122, 25, -0.28],
+        [ 108,-52, 126, 26, -0.30],
+        [ 170,-50, 118, 24, -0.28],
+      ].forEach(function(b) {
+        var p = uv(b[0], b[1]);
+        drawFrontal(p[0], p[1], b[2], b[3], b[4], 0.52 + Math.random() * 0.14, 9);
+      });
+
+      // ── 台風（西太平洋）・低気圧（南大西洋）
+      var cy1 = uv(138, 21);
+      drawCyclone(cy1[0], cy1[1], 46, 0.70);
+      var cy2 = uv(-48, -19);
+      drawCyclone(cy2[0], cy2[1], 40, 0.60);
+
+      // ── 極域の層雲
+      [
+        [ 68, 6, 0.48], [ 74, 5, 0.42],
+        [-68, 5, 0.50], [-74, 6, 0.45],
+      ].forEach(function(b) {
+        for (var i = 0; i < b[1]; i++) {
+          var lon = (i / b[1]) * 360 - 180 + (Math.random() - 0.5) * 22;
+          var p   = uv(lon, b[0] + (Math.random() - 0.5) * 5);
+          drawCloudBlob(p[0], p[1], W * 0.065, H * 0.022, (Math.random() - 0.5) * 0.4, b[2]);
+        }
+      });
+
       cc.globalAlpha = 1;
 
       var earthTex = new THREE.CanvasTexture(cv);
@@ -923,7 +1009,7 @@
         new THREE.MeshPhongMaterial({
           map: cloudTex,
           transparent: true,
-          opacity: 0.88,
+          opacity: 0.75,
           depthWrite: false,
         })
       );
