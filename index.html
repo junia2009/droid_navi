@@ -261,12 +261,12 @@
           }
           // 装飾パターン（中心に控えめなダイヤモンド模様）
           if ((tr + tc) % 2 === 0) {
-            var cx0 = tx + tw / 2, cy0 = ty + th / 2, dSize = tw * 0.18;
+            var centerX = tx + tw / 2, centerY = ty + th / 2, dSize = tw * 0.18;
             cx.beginPath();
-            cx.moveTo(cx0, cy0 - dSize);
-            cx.lineTo(cx0 + dSize, cy0);
-            cx.lineTo(cx0, cy0 + dSize);
-            cx.lineTo(cx0 - dSize, cy0);
+            cx.moveTo(centerX, centerY - dSize);
+            cx.lineTo(centerX + dSize, centerY);
+            cx.lineTo(centerX, centerY + dSize);
+            cx.lineTo(centerX - dSize, centerY);
             cx.closePath();
             cx.strokeStyle = 'rgba(170,155,130,0.12)';
             cx.lineWidth = 1;
