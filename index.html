@@ -864,13 +864,13 @@
 
       // 深海グラデーション
       var og = c.createLinearGradient(0, 0, 0, H);
-      og.addColorStop(0,    '#091428');
-      og.addColorStop(0.12, '#0c2450');
-      og.addColorStop(0.42, '#0d3470');
-      og.addColorStop(0.50, '#0f3e88');
-      og.addColorStop(0.58, '#0d3470');
-      og.addColorStop(0.88, '#0c2450');
-      og.addColorStop(1,    '#091428');
+      og.addColorStop(0,    '#020810');
+      og.addColorStop(0.12, '#051530');
+      og.addColorStop(0.42, '#082058');
+      og.addColorStop(0.50, '#0b2e78');
+      og.addColorStop(0.58, '#082058');
+      og.addColorStop(0.88, '#051530');
+      og.addColorStop(1,    '#020810');
       c.fillStyle = og;
       c.fillRect(0, 0, W, H);
 
@@ -881,7 +881,7 @@
       var cvS = document.createElement('canvas');
       cvS.width = W; cvS.height = H;
       var s = cvS.getContext('2d');
-      s.fillStyle = '#aaaaaa';  // 海面は中程度の反射
+      s.fillStyle = '#cccccc';  // 海面は中程度の反射
       s.fillRect(0, 0, W, H);
       lands.forEach(function(l) { poly(s, l.pts, '#0d0d0d'); }); // 陸は低反射
 
@@ -893,8 +893,8 @@
       var earthMat = new THREE.MeshPhongMaterial({
         map: earthTex,
         specularMap: specTex,
-        specular: new THREE.Color(0x334455),
-        shininess: 40,
+        specular: new THREE.Color(0x3366bb),
+        shininess: 90,
       });
       earthMesh = new THREE.Mesh(earthGeo, earthMat);
       earthMesh.rotation.z = 0.409;  // 地軸傾き（23.4°）
@@ -903,13 +903,13 @@
       // 大気圏 内層グロー
       earthMesh.add(new THREE.Mesh(
         new THREE.SphereGeometry(2.90, 32, 24),
-        new THREE.MeshPhongMaterial({ color: 0x2244aa, transparent: true, opacity: 0.07, side: THREE.FrontSide, depthWrite: false })
+        new THREE.MeshPhongMaterial({ color: 0x1a3388, transparent: true, opacity: 0.10, side: THREE.FrontSide, depthWrite: false })
       ));
 
       // 大気圏 外層リムグロー
       earthMesh.add(new THREE.Mesh(
         new THREE.SphereGeometry(3.10, 32, 24),
-        new THREE.MeshPhongMaterial({ color: 0x2266ff, transparent: true, opacity: 0.16, side: THREE.BackSide, depthWrite: false })
+        new THREE.MeshPhongMaterial({ color: 0x1144ee, transparent: true, opacity: 0.20, side: THREE.BackSide, depthWrite: false })
       ));
 
       scene.add(earthMesh);
