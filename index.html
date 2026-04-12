@@ -181,6 +181,60 @@
     var botL = new THREE.PointLight(0x334455, 0.2, 6); botL.position.set(0, -0.3, 3); scene.add(botL);
 
     // ===== 地面（神殿風タイルテクスチャ） =====
+    // テクスチャとバンプマップで同一の傷・ひび割れ位置を共有するためデータを事前生成
+    var _tileEffects = (function() {
+      var S = 512;
+      var effects = { scratches: [], cracks: [] };
+      // 傷（スクラッチ）データ：位置・角度・長さ・カーブ量・不透明度・線幅
+      for (var s = 0; s < 45; s++) {
+        var ang = Math.random() * Math.PI;
+        var len = 10 + Math.random() * 60;
+        effects.scratches.push({
+          sx: Math.random() * S,  sy: Math.random() * S,
+          ang: ang, len: len,
+          mx: (Math.random() - 0.5) * 14, my: (Math.random() - 0.5) * 14,
+          alpha: 0.10 + Math.random() * 0.18,
+          lw: 0.4 + Math.random() * 0.9
+        });
+      }
+      // ひび割れ（クラック）データ：放射状に分岐する折れ線
+      for (var cr = 0; cr < 5; cr++) {
+        var crack = {
+          crx: (Math.floor(Math.random() * 4) + 0.25 + Math.random() * 0.5) * (S / 4),
+          cry: (Math.floor(Math.random() * 4) + 0.25 + Math.random() * 0.5) * (S / 4),
+          branches: []
+        };
+        var branchCount = 2 + Math.floor(Math.random() * 3);
+        for (var b = 0; b < branchCount; b++) {
+          var bAng = (b / branchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+          var segs = 4 + Math.floor(Math.random() * 3);
+          var totalLen = 18 + Math.random() * 40;
+          var segLen = totalLen / segs;
+          var pts = [{ x: crack.crx, y: crack.cry }];
+          var px = crack.crx, py = crack.cry;
+          for (var bs = 0; bs < segs; bs++) {
+            bAng += (Math.random() - 0.5) * 0.55;
+            px += Math.cos(bAng) * segLen;
+            py += Math.sin(bAng) * segLen;
+            pts.push({ x: px, y: py });
+            // 途中からサブブランチを一本追加
+            if (bs === Math.floor(segs * 0.5) && Math.random() > 0.35) {
+              var sbAng = bAng + (Math.random() > 0.5 ? 1 : -1) * (0.45 + Math.random() * 0.5);
+              var sbLen = segLen * (0.4 + Math.random() * 0.5);
+              crack.branches.push({
+                points: [{ x: px, y: py }, { x: px + Math.cos(sbAng) * sbLen, y: py + Math.sin(sbAng) * sbLen }],
+                alpha: 0.12 + Math.random() * 0.14,
+                lw: 0.5 + Math.random() * 0.8
+              });
+            }
+          }
+          crack.branches.push({ points: pts, alpha: 0.20 + Math.random() * 0.22, lw: 0.8 + Math.random() * 1.3 });
+        }
+        effects.cracks.push(crack);
+      }
+      return effects;
+    })();
+
     var tileTex = (function() {
       var S = 512, cv = document.createElement('canvas');
       cv.width = cv.height = S;
@@ -274,6 +328,34 @@
           }
         }
       }
+      // 傷（スクラッチ）を追加：細い曲線でランダムな引っかき傷を表現
+      cx.lineCap = 'round';
+      _tileEffects.scratches.forEach(function(sc) {
+        cx.beginPath();
+        cx.moveTo(sc.sx, sc.sy);
+        cx.quadraticCurveTo(
+          sc.sx + Math.cos(sc.ang) * sc.len * 0.5 + sc.mx,
+          sc.sy + Math.sin(sc.ang) * sc.len * 0.5 + sc.my,
+          sc.sx + Math.cos(sc.ang) * sc.len,
+          sc.sy + Math.sin(sc.ang) * sc.len
+        );
+        cx.strokeStyle = 'rgba(90,80,65,' + sc.alpha + ')';
+        cx.lineWidth = sc.lw;
+        cx.stroke();
+      });
+      // ひび割れ（クラック）を追加：放射状に分岐した折れ線でひびを表現
+      _tileEffects.cracks.forEach(function(crack) {
+        crack.branches.forEach(function(branch) {
+          cx.beginPath();
+          cx.moveTo(branch.points[0].x, branch.points[0].y);
+          for (var i = 1; i < branch.points.length; i++) {
+            cx.lineTo(branch.points[i].x, branch.points[i].y);
+          }
+          cx.strokeStyle = 'rgba(60,50,35,' + branch.alpha + ')';
+          cx.lineWidth = branch.lw;
+          cx.stroke();
+        });
+      });
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
@@ -307,6 +389,34 @@
           cx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize);
         }
       }
+      // 傷のバンプ：暗い細線でスクラッチを凹みとして表現
+      cx.lineCap = 'round';
+      _tileEffects.scratches.forEach(function(sc) {
+        cx.beginPath();
+        cx.moveTo(sc.sx, sc.sy);
+        cx.quadraticCurveTo(
+          sc.sx + Math.cos(sc.ang) * sc.len * 0.5 + sc.mx,
+          sc.sy + Math.sin(sc.ang) * sc.len * 0.5 + sc.my,
+          sc.sx + Math.cos(sc.ang) * sc.len,
+          sc.sy + Math.sin(sc.ang) * sc.len
+        );
+        cx.strokeStyle = 'rgba(40,40,40,' + (sc.alpha * 2.2) + ')';
+        cx.lineWidth = sc.lw + 0.5;
+        cx.stroke();
+      });
+      // ひび割れのバンプ：深く暗い線でクラックの凹みを表現
+      _tileEffects.cracks.forEach(function(crack) {
+        crack.branches.forEach(function(branch) {
+          cx.beginPath();
+          cx.moveTo(branch.points[0].x, branch.points[0].y);
+          for (var i = 1; i < branch.points.length; i++) {
+            cx.lineTo(branch.points[i].x, branch.points[i].y);
+          }
+          cx.strokeStyle = 'rgba(10,10,10,' + Math.min(1, branch.alpha * 3.5) + ')';
+          cx.lineWidth = branch.lw * 1.6;
+          cx.stroke();
+        });
+      });
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
@@ -316,7 +426,7 @@
     var flMat = new THREE.MeshStandardMaterial({
       map: tileTex,
       bumpMap: tileBump,
-      bumpScale: 0.15,
+      bumpScale: 0.22,
       roughness: 0.35,
       metalness: 0.08,
       color: 0xe8e0d4
