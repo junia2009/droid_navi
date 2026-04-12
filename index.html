@@ -181,56 +181,62 @@
     var botL = new THREE.PointLight(0x334455, 0.2, 6); botL.position.set(0, -0.3, 3); scene.add(botL);
 
     // ===== 地面（中世ヨーロッパ風石畳テクスチャ） =====
-    var cobbleTex = (function() {
-      var S = 512, cv = document.createElement('canvas');
-      cv.width = cv.height = S;
-      var cx = cv.getContext('2d');
-      // 背景（目地の色）
-      cx.fillStyle = '#1a1a20';
-      cx.fillRect(0, 0, S, S);
-      // 石を配置
-      var stones = [];
-      var rows = 10, cols = 8;
+    // 石の配置データを事前生成（カラーマップとバンプマップで共有）
+    var cobbleStones = (function() {
+      var S = 512, rows = 10, cols = 8, stones = [];
       for (var r = 0; r < rows; r++) {
         var rowOff = (r % 2) * (S / cols * 0.5);
         for (var c = 0; c < cols + 1; c++) {
           var bw = S / cols, bh = S / rows;
-          var sx = c * bw + rowOff + (Math.random() - 0.5) * bw * 0.18;
-          var sy = r * bh + (Math.random() - 0.5) * bh * 0.15;
-          var sw = bw * (0.82 + Math.random() * 0.14);
-          var sh = bh * (0.78 + Math.random() * 0.16);
-          stones.push({ x: sx, y: sy, w: sw, h: sh });
+          stones.push({
+            x: c * bw + rowOff + (Math.random() - 0.5) * bw * 0.18,
+            y: r * bh + (Math.random() - 0.5) * bh * 0.15,
+            w: bw * (0.82 + Math.random() * 0.14),
+            h: bh * (0.78 + Math.random() * 0.16),
+            lum: 140 + Math.floor(Math.random() * 40)
+          });
         }
       }
-      stones.forEach(function(st) {
+      return { size: S, stones: stones };
+    })();
+
+    function drawCobbleStone(cx, st) {
+      var cr = Math.min(st.w, st.h) * 0.18;
+      var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
+      var w = st.w - 4, h = st.h - 4;
+      cx.beginPath();
+      cx.moveTo(x + cr, y);
+      cx.lineTo(x + w - cr, y);
+      cx.quadraticCurveTo(x + w, y, x + w, y + cr);
+      cx.lineTo(x + w, y + h - cr);
+      cx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
+      cx.lineTo(x + cr, y + h);
+      cx.quadraticCurveTo(x, y + h, x, y + h - cr);
+      cx.lineTo(x, y + cr);
+      cx.quadraticCurveTo(x, y, x + cr, y);
+      cx.closePath();
+    }
+
+    var cobbleTex = (function() {
+      var S = cobbleStones.size, cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      var cx = cv.getContext('2d');
+      cx.fillStyle = '#1a1a20';
+      cx.fillRect(0, 0, S, S);
+      cobbleStones.stones.forEach(function(st) {
         var base = 32 + Math.floor(Math.random() * 30);
         var tint = Math.floor(Math.random() * 10);
-        var rr = base + tint, gg = base + Math.floor(tint * 0.8), bb = base - 2 + Math.floor(Math.random() * 8);
-        cx.fillStyle = 'rgb(' + rr + ',' + gg + ',' + bb + ')';
-        var cr = Math.min(st.w, st.h) * 0.18;
-        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
-        var w = st.w - 4, h = st.h - 4;
-        cx.beginPath();
-        cx.moveTo(x + cr, y);
-        cx.lineTo(x + w - cr, y);
-        cx.quadraticCurveTo(x + w, y, x + w, y + cr);
-        cx.lineTo(x + w, y + h - cr);
-        cx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
-        cx.lineTo(x + cr, y + h);
-        cx.quadraticCurveTo(x, y + h, x, y + h - cr);
-        cx.lineTo(x, y + cr);
-        cx.quadraticCurveTo(x, y, x + cr, y);
-        cx.closePath();
+        cx.fillStyle = 'rgb(' + (base + tint) + ',' + (base + Math.floor(tint * 0.8)) + ',' + (base - 2 + Math.floor(Math.random() * 8)) + ')';
+        drawCobbleStone(cx, st);
         cx.fill();
-        // ハイライト
-        cx.save();
-        cx.clip();
+        // ハイライト＋ノイズ
+        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2, w = st.w - 4, h = st.h - 4;
+        cx.save(); cx.clip();
         var grd = cx.createLinearGradient(x, y, x + w * 0.6, y + h * 0.6);
         grd.addColorStop(0, 'rgba(180,180,190,0.08)');
         grd.addColorStop(1, 'rgba(0,0,0,0.12)');
         cx.fillStyle = grd;
         cx.fillRect(x, y, w, h);
-        // 微細なノイズ
         for (var i = 0; i < 40; i++) {
           var nx = x + Math.random() * w, ny = y + Math.random() * h;
           cx.fillStyle = 'rgba(' + (Math.random() > 0.5 ? '200,200,210' : '10,10,15') + ',' + (0.03 + Math.random() * 0.06) + ')';
@@ -245,46 +251,25 @@
     })();
 
     var cobbleBump = (function() {
-      var S = 512, cv = document.createElement('canvas');
+      var S = cobbleStones.size, cv = document.createElement('canvas');
       cv.width = cv.height = S;
       var cx = cv.getContext('2d');
       cx.fillStyle = '#000';
       cx.fillRect(0, 0, S, S);
-      var rows = 10, cols = 8;
-      for (var r = 0; r < rows; r++) {
-        var rowOff = (r % 2) * (S / cols * 0.5);
-        for (var c = 0; c < cols + 1; c++) {
-          var bw = S / cols, bh = S / rows;
-          var sx = c * bw + rowOff + (Math.random() - 0.5) * bw * 0.18;
-          var sy = r * bh + (Math.random() - 0.5) * bh * 0.15;
-          var sw = bw * (0.82 + Math.random() * 0.14);
-          var sh = bh * (0.78 + Math.random() * 0.16);
-          var lum = 140 + Math.floor(Math.random() * 40);
-          cx.fillStyle = 'rgb(' + lum + ',' + lum + ',' + lum + ')';
-          var cr = Math.min(sw, sh) * 0.18;
-          var x = sx - sw / 2 + 2, y = sy - sh / 2 + 2, w = sw - 4, h = sh - 4;
-          cx.beginPath();
-          cx.moveTo(x + cr, y);
-          cx.lineTo(x + w - cr, y);
-          cx.quadraticCurveTo(x + w, y, x + w, y + cr);
-          cx.lineTo(x + w, y + h - cr);
-          cx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
-          cx.lineTo(x + cr, y + h);
-          cx.quadraticCurveTo(x, y + h, x, y + h - cr);
-          cx.lineTo(x, y + cr);
-          cx.quadraticCurveTo(x, y, x + cr, y);
-          cx.closePath();
-          cx.fill();
-          // 中央を明るく（凸に見せる）
-          var grd = cx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(sw, sh) * 0.45);
-          grd.addColorStop(0, 'rgba(255,255,255,0.18)');
-          grd.addColorStop(1, 'rgba(0,0,0,0.15)');
-          cx.save(); cx.clip();
-          cx.fillStyle = grd;
-          cx.fillRect(x, y, w, h);
-          cx.restore();
-        }
-      }
+      cobbleStones.stones.forEach(function(st) {
+        cx.fillStyle = 'rgb(' + st.lum + ',' + st.lum + ',' + st.lum + ')';
+        drawCobbleStone(cx, st);
+        cx.fill();
+        // 中央を明るく（凸に見せる）
+        var grd = cx.createRadialGradient(st.x, st.y, 0, st.x, st.y, Math.max(st.w, st.h) * 0.45);
+        grd.addColorStop(0, 'rgba(255,255,255,0.18)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.15)');
+        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
+        cx.save(); cx.clip();
+        cx.fillStyle = grd;
+        cx.fillRect(x, y, st.w - 4, st.h - 4);
+        cx.restore();
+      });
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
