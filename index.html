@@ -180,12 +180,112 @@
     var rimL = new THREE.DirectionalLight(0x5577aa, 0.25); rimL.position.set(0, 3, -5); scene.add(rimL);
     var botL = new THREE.PointLight(0x334455, 0.2, 6); botL.position.set(0, -0.3, 3); scene.add(botL);
 
-    // ===== 地面 =====
-    var flMat = new THREE.MeshStandardMaterial({ color: 0x12121a, roughness: 0.88, metalness: 0.08 });
+    // ===== 地面（中世ヨーロッパ風石畳テクスチャ） =====
+    // 石の配置データを事前生成（カラーマップとバンプマップで共有）
+    var cobbleStones = (function() {
+      var S = 512, rows = 10, cols = 8, stones = [];
+      for (var r = 0; r < rows; r++) {
+        var rowOff = (r % 2) * (S / cols * 0.5);
+        for (var c = 0; c < cols + 1; c++) {
+          var bw = S / cols, bh = S / rows;
+          stones.push({
+            x: c * bw + rowOff + (Math.random() - 0.5) * bw * 0.18,
+            y: r * bh + (Math.random() - 0.5) * bh * 0.15,
+            w: bw * (0.82 + Math.random() * 0.14),
+            h: bh * (0.78 + Math.random() * 0.16),
+            lum: 140 + Math.floor(Math.random() * 40)
+          });
+        }
+      }
+      return { size: S, stones: stones };
+    })();
+
+    function drawCobbleStone(cx, st) {
+      var cr = Math.min(st.w, st.h) * 0.18;
+      var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
+      var w = st.w - 4, h = st.h - 4;
+      cx.beginPath();
+      cx.moveTo(x + cr, y);
+      cx.lineTo(x + w - cr, y);
+      cx.quadraticCurveTo(x + w, y, x + w, y + cr);
+      cx.lineTo(x + w, y + h - cr);
+      cx.quadraticCurveTo(x + w, y + h, x + w - cr, y + h);
+      cx.lineTo(x + cr, y + h);
+      cx.quadraticCurveTo(x, y + h, x, y + h - cr);
+      cx.lineTo(x, y + cr);
+      cx.quadraticCurveTo(x, y, x + cr, y);
+      cx.closePath();
+    }
+
+    var cobbleTex = (function() {
+      var S = cobbleStones.size, cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      var cx = cv.getContext('2d');
+      cx.fillStyle = '#1a1a20';
+      cx.fillRect(0, 0, S, S);
+      cobbleStones.stones.forEach(function(st) {
+        var base = 32 + Math.floor(Math.random() * 30);
+        var tint = Math.floor(Math.random() * 10);
+        cx.fillStyle = 'rgb(' + (base + tint) + ',' + (base + Math.floor(tint * 0.8)) + ',' + (base - 2 + Math.floor(Math.random() * 8)) + ')';
+        drawCobbleStone(cx, st);
+        cx.fill();
+        // ハイライト＋ノイズ
+        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2, w = st.w - 4, h = st.h - 4;
+        cx.save(); cx.clip();
+        var grd = cx.createLinearGradient(x, y, x + w * 0.6, y + h * 0.6);
+        grd.addColorStop(0, 'rgba(180,180,190,0.08)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.12)');
+        cx.fillStyle = grd;
+        cx.fillRect(x, y, w, h);
+        for (var i = 0; i < 40; i++) {
+          var nx = x + Math.random() * w, ny = y + Math.random() * h;
+          cx.fillStyle = 'rgba(' + (Math.random() > 0.5 ? '200,200,210' : '10,10,15') + ',' + (0.03 + Math.random() * 0.06) + ')';
+          cx.fillRect(nx, ny, 1 + Math.random() * 2, 1 + Math.random() * 2);
+        }
+        cx.restore();
+      });
+      var tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3, 3);
+      return tex;
+    })();
+
+    var cobbleBump = (function() {
+      var S = cobbleStones.size, cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      var cx = cv.getContext('2d');
+      cx.fillStyle = '#000';
+      cx.fillRect(0, 0, S, S);
+      cobbleStones.stones.forEach(function(st) {
+        cx.fillStyle = 'rgb(' + st.lum + ',' + st.lum + ',' + st.lum + ')';
+        drawCobbleStone(cx, st);
+        cx.fill();
+        // 中央を明るく（凸に見せる）
+        var grd = cx.createRadialGradient(st.x, st.y, 0, st.x, st.y, Math.max(st.w, st.h) * 0.45);
+        grd.addColorStop(0, 'rgba(255,255,255,0.18)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.15)');
+        var x = st.x - st.w / 2 + 2, y = st.y - st.h / 2 + 2;
+        cx.save(); cx.clip();
+        cx.fillStyle = grd;
+        cx.fillRect(x, y, st.w - 4, st.h - 4);
+        cx.restore();
+      });
+      var tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3, 3);
+      return tex;
+    })();
+
+    var flMat = new THREE.MeshStandardMaterial({
+      map: cobbleTex,
+      bumpMap: cobbleBump,
+      bumpScale: 0.35,
+      roughness: 0.85,
+      metalness: 0.05,
+      color: 0xcccccc
+    });
     var fl = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), flMat);
     fl.rotation.x = -Math.PI/2; fl.receiveShadow = true; scene.add(fl);
-    var gr = new THREE.GridHelper(14, 28, 0x1c2844, 0x0e1828);
-    gr.material.opacity = 0.18; gr.material.transparent = true; scene.add(gr);
 
     // ===== マテリアル =====
     var M = {
