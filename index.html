@@ -915,6 +915,107 @@
       scene.add(earthMesh);
     })();
 
+    // ===== 雲（物理ベース：積雲シミュレーション）=====
+    // 物理的根拠:
+    // 1. 凝結高度 (Lifting Condensation Level, LCL):
+    //    上昇した湿潤空気が断熱冷却で露点温度に達した高度 → 雲底は平坦・水平
+    // 2. 対流セル (Convective Cells):
+    //    不安定大気での熱的上昇気流が積雲を縦方向に発達させる
+    //    → 雲頂は複数の丸い塔状突起（積み重なった対流セル）
+    // 3. Mie散乱 (Mie Scattering):
+    //    雲粒（直径 1–100 μm の水滴・氷晶）は可視光の全波長域を等方的に散乱する
+    //    → 波長依存性が低く、雲は白色に見える
+    // 4. 雲粒密度勾配:
+    //    雲内部は光学的に厚い（高不透明度）、縁部は密度が低く半透明
+    var clouds = [];
+    (function() {
+      // Mie散乱近似: 完全拡散白色マテリアル（金属感ゼロ、粗さ最大）
+      function makeCloudMat(opacity) {
+        return new THREE.MeshStandardMaterial({
+          color: 0xf2f5ff,   // わずかに青みがかった白（大気散乱のブルーシフト）
+          roughness: 1.0,
+          metalness: 0.0,
+          transparent: true,
+          opacity: opacity,
+          depthWrite: false,
+        });
+      }
+
+      // 積雲生成:
+      //   cy  = 凝結高度（雲底 y 座標）
+      //   scale = 雲のサイズ係数
+      function buildCumulus(cx, cy, cz, scale) {
+        var grp = new THREE.Group();
+
+        // ── 雲底層（LCL面 - 扁平な楕円体で平坦な雲底を表現）──
+        // 凝結高度は同一高度なので y 方向を大きく圧縮（y_scale ≈ 0.32）
+        var baseSph = new THREE.Mesh(
+          new THREE.SphereGeometry(0.40 * scale, 14, 10),
+          makeCloudMat(0.60)
+        );
+        baseSph.scale.set(1.55, 0.32, 1.30);
+        baseSph.position.y = 0;
+        grp.add(baseSph);
+
+        // ── 対流セル群（積み重なる球体で上昇気流セルを表現）──
+        // 中央主柱: 最も強い上昇気流（雲の中心軸）
+        // 周辺セル: 乱流による不均一な成長（実際の積雲の不規則性）
+        var cells = [
+          // 中央主対流セル（下から上に密度が減少 → 不透明度が下がる）
+          { x: 0.00, y: 0.20, z: 0.00, r: 0.32, o: 0.84 },
+          { x: 0.00, y: 0.40, z: 0.00, r: 0.24, o: 0.78 },
+          { x: 0.00, y: 0.56, z: 0.00, r: 0.17, o: 0.68 },
+          // 第1周辺セル層（対流不安定による周辺発達）
+          { x: 0.22, y: 0.16, z: 0.08, r: 0.24, o: 0.76 },
+          { x:-0.20, y: 0.15, z: 0.10, r: 0.23, o: 0.75 },
+          { x: 0.12, y: 0.32, z:-0.16, r: 0.20, o: 0.72 },
+          { x:-0.14, y: 0.30, z: 0.18, r: 0.19, o: 0.70 },
+          { x: 0.24, y: 0.28, z:-0.10, r: 0.18, o: 0.68 },
+          { x:-0.22, y: 0.26, z:-0.08, r: 0.17, o: 0.66 },
+          // 第2周辺セル層（さらに外側・上部 - 密度低下）
+          { x: 0.08, y: 0.46, z: 0.12, r: 0.15, o: 0.60 },
+          { x:-0.10, y: 0.44, z:-0.08, r: 0.14, o: 0.58 },
+          { x: 0.18, y: 0.38, z: 0.16, r: 0.13, o: 0.55 },
+          { x:-0.16, y: 0.36, z:-0.14, r: 0.12, o: 0.52 },
+        ];
+
+        cells.forEach(function(c) {
+          var mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(c.r * scale, 9, 7),
+            makeCloudMat(c.o)
+          );
+          mesh.position.set(c.x * scale, c.y * scale, c.z * scale);
+          grp.add(mesh);
+        });
+
+        grp.position.set(cx, cy, cz);
+        return grp;
+      }
+
+      // 雲の初期配置（高さ・サイズに変化を持たせてリアルな空を演出）
+      // ドロイドのスケール（全高約3.6u）に合わせて雲底高度 y=2.6〜3.8
+      var cloudDefs = [
+        { x: -2.2, y: 2.9, z: -3.5, s: 1.05, speed: 0.072, amp: 0.14, phase: 0.00 },
+        { x:  1.8, y: 3.3, z: -4.2, s: 0.78, speed: 0.055, amp: 0.10, phase: 1.20 },
+        { x: -4.0, y: 2.6, z: -2.2, s: 1.20, speed: 0.088, amp: 0.18, phase: 2.50 },
+        { x:  3.4, y: 3.0, z: -3.2, s: 0.88, speed: 0.064, amp: 0.12, phase: 0.80 },
+        { x:  0.3, y: 3.7, z: -5.8, s: 0.65, speed: 0.045, amp: 0.08, phase: 3.60 },
+      ];
+
+      cloudDefs.forEach(function(cd) {
+        var mesh = buildCumulus(cd.x, cd.y, cd.z, cd.s);
+        scene.add(mesh);
+        clouds.push({
+          mesh:  mesh,
+          origX: cd.x,
+          origY: cd.y,
+          speed: cd.speed,
+          amp:   cd.amp,
+          phase: cd.phase,
+        });
+      });
+    })();
+
     // ===== 宇宙背景（スターフィールド）=====
     var stars;
     (function() {
@@ -1112,6 +1213,15 @@
       // --- 地球の自転 ---
       if (earthMesh) {
         earthMesh.rotation.y += 0.0008;
+      }
+
+      // --- 雲の漂流（大気循環による緩やかな流れ）---
+      // サイン波で水平移動を近似（大気循環の簡略モデル）
+      for (var ci = 0; ci < clouds.length; ci++) {
+        var cl = clouds[ci];
+        cl.mesh.position.x = cl.origX + Math.sin(aP * cl.speed + cl.phase) * cl.amp;
+        // 微小な上下揺れ（対流による鉛直変動）- origY を基準に振動させる
+        cl.mesh.position.y = cl.origY + Math.sin(aP * cl.speed * 1.3 + cl.phase) * 0.04;
       }
 
       renderer.render(scene, camera);
