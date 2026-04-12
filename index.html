@@ -833,8 +833,17 @@
       droid.position.x += dx * wSpeed;
       droid.position.z += dz * wSpeed;
 
-      // 移動方向にボディを向ける
-      if (movingFast) {
+      // 話しかけられた時はカメラ方向、移動中は移動方向にボディを向ける
+      if (droidFacing && now < droidFacingEnd) {
+        var toCamX = camera.position.x - droid.position.x;
+        var toCamZ = camera.position.z - droid.position.z;
+        var targetBodyY = Math.atan2(toCamX, toCamZ);
+        var curY = droid.rotation.y;
+        var diff = targetBodyY - curY;
+        while (diff >  Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        droid.rotation.y += diff * 0.07;
+      } else if (movingFast) {
         var targetBodyY = Math.atan2(dx, dz);
         var curY = droid.rotation.y;
         var diff = targetBodyY - curY;
@@ -867,10 +876,19 @@
       }
       var dm = droid.getObjectByName('dome');
       if (dm) {
-        if (droidReacting && now < droidReactEnd) {
-          dm.rotation.y = Math.sin(aP * 4) * 0.6;
-          dm.rotation.x = Math.sin(aP * 3) * 0.2;
+        if (droidFacing && now < droidFacingEnd) {
+          if (droidReacting && now < droidReactEnd) {
+            // 反応アニメーション（頭振り）
+            dm.rotation.y = Math.sin(aP * 4) * 0.6;
+            dm.rotation.x = Math.sin(aP * 3) * 0.2;
+          } else {
+            droidReacting = false;
+            // ボディがカメラを向いているので頭も正面（y=0）に向ける
+            dm.rotation.y += (0 - dm.rotation.y) * 0.05;
+            dm.rotation.x += (0.05 - dm.rotation.x) * 0.05;
+          }
         } else {
+          droidFacing = false;
           droidReacting = false;
           dm.rotation.y += (domeTargetY - dm.rotation.y) * 0.035;
           dm.rotation.x += (domeTargetX - dm.rotation.x) * 0.035;
@@ -908,6 +926,9 @@
     // ドロイド反応アニメーション状態
     var droidReacting = false;
     var droidReactEnd = 0;
+    // 話しかけられた時にカメラを向く状態
+    var droidFacing = false;
+    var droidFacingEnd = 0;
 
     function addMsg(text, type, html) {
       var div = document.createElement('div');
@@ -940,6 +961,8 @@
     function triggerDroidReaction() {
       droidReacting = true;
       droidReactEnd = Date.now() + 2000;
+      droidFacing = true;
+      droidFacingEnd = Date.now() + 4000;
     }
 
     // --- 天気API (Open-Meteo / 無料・APIキー不要) ---
