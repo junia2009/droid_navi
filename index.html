@@ -13,7 +13,7 @@
   <title>RT91 Navi - ナビゲータードロイド</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a12; min-height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+    body { background: #000008; min-height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
     #c { position: fixed; inset: 0; }
     #info { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: rgba(180,190,210,0.45); font-size: 11px; letter-spacing: 2px; pointer-events: none; z-index: 10; display:none; }
 
@@ -161,7 +161,7 @@
     var renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setClearColor(0x0c0c16);
+    renderer.setClearColor(0x000008);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -753,6 +753,38 @@
     droid.position.y = 0.01;
     scene.add(droid);
 
+    // ===== 宇宙背景（スターフィールド）=====
+    var stars;
+    (function() {
+      var starCount = 3500;
+      var positions = new Float32Array(starCount * 3);
+      var colors = new Float32Array(starCount * 3);
+      for (var i = 0; i < starCount; i++) {
+        var theta = Math.random() * Math.PI * 2;
+        var phi = Math.acos(2 * Math.random() - 1);
+        var r = 55 + Math.random() * 25;
+        positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
+        var t = Math.random();
+        colors[i * 3]     = 0.75 + t * 0.25;
+        colors[i * 3 + 1] = 0.80 + t * 0.15;
+        colors[i * 3 + 2] = 0.85 + t * 0.15;
+      }
+      var starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      var starMat = new THREE.PointsMaterial({
+        size: 0.10,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.90,
+        sizeAttenuation: true
+      });
+      stars = new THREE.Points(starGeo, starMat);
+      scene.add(stars);
+    })();
+
     // =====================================================
     //  カメラ操作 & アニメーション
     // =====================================================
@@ -911,6 +943,9 @@
         legL.rotation.x += (Math.sin(aP * 3.5) * legSwing - legL.rotation.x) * 0.15;
         legR.rotation.x += (Math.sin(aP * 3.5 + Math.PI) * legSwing - legR.rotation.x) * 0.15;
       }
+
+      // --- 星空のゆっくり回転 ---
+      if (stars) { stars.rotation.y += 0.00015; stars.rotation.x += 0.00006; }
 
       renderer.render(scene, camera);
     }
