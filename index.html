@@ -915,20 +915,36 @@
       scene.add(earthMesh);
     })();
 
-    // ===== 雲（物理ベース：積雲シミュレーション）=====
+    // ===== 雲（地球大気圏：積雲シミュレーション）=====
     // 物理的根拠:
-    // 1. 凝結高度 (Lifting Condensation Level, LCL):
+    // 1. 雲は地球の大気圏（対流圏：地表〜高度12km）内に存在する
+    //    → 地球オブジェクトの子要素として球面上に配置する
+    // 2. 凝結高度 (Lifting Condensation Level, LCL):
     //    上昇した湿潤空気が断熱冷却で露点温度に達した高度 → 雲底は平坦・水平
-    // 2. 対流セル (Convective Cells):
+    // 3. 対流セル (Convective Cells):
     //    不安定大気での熱的上昇気流が積雲を縦方向に発達させる
     //    → 雲頂は複数の丸い塔状突起（積み重なった対流セル）
-    // 3. Mie散乱 (Mie Scattering):
+    // 4. Mie散乱 (Mie Scattering):
     //    雲粒（直径 1–100 μm の水滴・氷晶）は可視光の全波長域を等方的に散乱する
     //    → 波長依存性が低く、雲は白色に見える
-    // 4. 雲粒密度勾配:
-    //    雲内部は光学的に厚い（高不透明度）、縁部は密度が低く半透明
-    var clouds = [];
+    // 5. 緯度帯制限:
+    //    積雲は熱帯〜中緯度（緯度±60°以内）に多く発達する
+    //    極域は低温・乾燥で水蒸気が少ないため積雲はほとんど生じない
     (function() {
+      var ER = 2.8;  // 地球半径
+      var CR = ER + 0.04; // 雲底高度（ER+0.04 ≈ 対流圏下層 1.5%分の浮き）
+
+      // 球面座標 (緯度°, 経度°) → デカルト座標
+      function spherePos(lat, lon, r) {
+        var laR = lat * Math.PI / 180;
+        var loR = lon * Math.PI / 180;
+        return new THREE.Vector3(
+          r * Math.cos(laR) * Math.cos(loR),
+          r * Math.sin(laR),
+          r * Math.cos(laR) * Math.sin(loR)
+        );
+      }
+
       // Mie散乱近似: 完全拡散白色マテリアル（金属感ゼロ、粗さ最大）
       function makeCloudMat(opacity) {
         return new THREE.MeshStandardMaterial({
@@ -941,10 +957,11 @@
         });
       }
 
-      // 積雲生成:
-      //   cy  = 凝結高度（雲底 y 座標）
-      //   scale = 雲のサイズ係数
-      function buildCumulus(cx, cy, cz, scale) {
+      // 積雲生成（地球ローカル座標系）:
+      //   lat, lon = 雲底の緯度・経度（度）
+      //   scale    = 雲のサイズ係数
+      //   雲の Y 軸を球面の外向き法線（地球中心から放射方向）に揃える
+      function buildCumulus(lat, lon, scale) {
         var grp = new THREE.Group();
 
         // ── 雲底層（LCL面 - 扁平な楕円体で平坦な雲底を表現）──
@@ -988,31 +1005,30 @@
           grp.add(mesh);
         });
 
-        grp.position.set(cx, cy, cz);
+        // 球面上の位置に配置し、Y 軸を地球中心から外向きに向ける
+        var pos = spherePos(lat, lon, CR);
+        grp.position.copy(pos);
+        grp.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          pos.clone().normalize()
+        );
         return grp;
       }
 
-      // 雲の初期配置（高さ・サイズに変化を持たせてリアルな空を演出）
-      // ドロイドのスケール（全高約3.6u）に合わせて雲底高度 y=2.6〜3.8
+      // 雲の配置（緯度±55°以内、主要な雲帯をカバー）
+      // 熱帯収束帯（ITCZ）・中緯度低気圧帯に沿った分布
+      // s: 雲のサイズ係数（base球半径 = 0.40 * s）。熱帯の活発な雲は大きく(0.18〜0.19)、
+      //    偏西風帯の雲は小さめ(0.15〜0.16)に設定
       var cloudDefs = [
-        { x: -2.2, y: 2.9, z: -3.5, s: 1.05, speed: 0.072, amp: 0.14, phase: 0.00 },
-        { x:  1.8, y: 3.3, z: -4.2, s: 0.78, speed: 0.055, amp: 0.10, phase: 1.20 },
-        { x: -4.0, y: 2.6, z: -2.2, s: 1.20, speed: 0.088, amp: 0.18, phase: 2.50 },
-        { x:  3.4, y: 3.0, z: -3.2, s: 0.88, speed: 0.064, amp: 0.12, phase: 0.80 },
-        { x:  0.3, y: 3.7, z: -5.8, s: 0.65, speed: 0.045, amp: 0.08, phase: 3.60 },
+        { lat:  10, lon:  40, s: 0.18 },  // アフリカ東岸〜インド洋（ITCZ帯）
+        { lat:  42, lon: 150, s: 0.16 },  // 北太平洋（中緯度低気圧帯）
+        { lat: -12, lon: -55, s: 0.19 },  // アマゾン上空（熱帯対流雲）
+        { lat:  52, lon: -25, s: 0.15 },  // 北大西洋（偏西風帯）
+        { lat:   5, lon: 105, s: 0.17 },  // 東南アジア（熱帯積雲）
       ];
 
       cloudDefs.forEach(function(cd) {
-        var mesh = buildCumulus(cd.x, cd.y, cd.z, cd.s);
-        scene.add(mesh);
-        clouds.push({
-          mesh:  mesh,
-          origX: cd.x,
-          origY: cd.y,
-          speed: cd.speed,
-          amp:   cd.amp,
-          phase: cd.phase,
-        });
+        earthMesh.add(buildCumulus(cd.lat, cd.lon, cd.s));
       });
     })();
 
@@ -1215,14 +1231,7 @@
         earthMesh.rotation.y += 0.0008;
       }
 
-      // --- 雲の漂流（大気循環による緩やかな流れ）---
-      // サイン波で水平移動を近似（大気循環の簡略モデル）
-      for (var ci = 0; ci < clouds.length; ci++) {
-        var cl = clouds[ci];
-        cl.mesh.position.x = cl.origX + Math.sin(aP * cl.speed + cl.phase) * cl.amp;
-        // 微小な上下揺れ（対流による鉛直変動）- origY を基準に振動させる
-        cl.mesh.position.y = cl.origY + Math.sin(aP * cl.speed * 1.3 + cl.phase) * 0.04;
-      }
+      // 雲は earthMesh の子要素として自転に連動する（大気圏が地球と共に回転）
 
       renderer.render(scene, camera);
     }
