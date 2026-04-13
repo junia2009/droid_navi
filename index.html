@@ -307,6 +307,24 @@
           cx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize);
         }
       }
+      // タイルのひび割れ（バンプマップ上で暗い線=凹み）
+      for (var ci = 0; ci < 5; ci++) {
+        cx.beginPath();
+        var crX = Math.random() * S, crY = Math.random() * S;
+        var crAngle = Math.random() * Math.PI * 2;
+        cx.moveTo(crX, crY);
+        var segs = 5 + Math.floor(Math.random() * 4);
+        for (var cs = 0; cs < segs; cs++) {
+          crAngle += (Math.random() - 0.5) * 1.0;
+          var crLen = 10 + Math.random() * 30;
+          crX += Math.cos(crAngle) * crLen;
+          crY += Math.sin(crAngle) * crLen;
+          cx.lineTo(crX, crY);
+        }
+        cx.strokeStyle = 'rgba(30,30,30,' + (0.25 + Math.random() * 0.35).toFixed(2) + ')';
+        cx.lineWidth = 1 + Math.random() * 1.5;
+        cx.stroke();
+      }
       var tex = new THREE.CanvasTexture(cv);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
       tex.repeat.set(3, 3);
@@ -324,17 +342,109 @@
     var fl = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), flMat);
     fl.rotation.x = -Math.PI/2; fl.receiveShadow = true; scene.add(fl);
 
+    // ===== 傷・割れテクスチャ生成 =====
+    function makeScratchTex(opts) {
+      var S = opts.size || 256;
+      var cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      var cx = cv.getContext('2d');
+      // ベース（roughnessMap用: 明るい=粗い、暗い=滑らか）
+      cx.fillStyle = opts.base || '#808080';
+      cx.fillRect(0, 0, S, S);
+      // 細かいスクラッチ（15〜25本）
+      var scratchCount = 15 + Math.floor(Math.random() * 11);
+      for (var i = 0; i < scratchCount; i++) {
+        cx.beginPath();
+        var sx = Math.random() * S, sy = Math.random() * S;
+        var angle = Math.random() * Math.PI * 2;
+        var len = 20 + Math.random() * 80;
+        cx.moveTo(sx, sy);
+        // 微妙に曲がるスクラッチ
+        for (var seg = 0; seg < 3; seg++) {
+          angle += (Math.random() - 0.5) * 0.4;
+          var segLen = len / 3;
+          sx += Math.cos(angle) * segLen;
+          sy += Math.sin(angle) * segLen;
+          cx.lineTo(sx, sy);
+        }
+        var sAlpha = 0.15 + Math.random() * 0.35;
+        cx.strokeStyle = opts.scratchColor
+          ? opts.scratchColor.replace('ALPHA', sAlpha.toFixed(2))
+          : 'rgba(200,200,200,' + sAlpha.toFixed(2) + ')';
+        cx.lineWidth = 0.5 + Math.random() * 1.2;
+        cx.stroke();
+      }
+      // ひび割れ（3〜6本のジグザグパス）
+      var crackCount = 3 + Math.floor(Math.random() * 4);
+      for (var c = 0; c < crackCount; c++) {
+        cx.beginPath();
+        var crX = Math.random() * S, crY = Math.random() * S;
+        var crAngle = Math.random() * Math.PI * 2;
+        cx.moveTo(crX, crY);
+        var segments = 4 + Math.floor(Math.random() * 5);
+        for (var s = 0; s < segments; s++) {
+          crAngle += (Math.random() - 0.5) * 1.2;
+          var crLen = 8 + Math.random() * 25;
+          crX += Math.cos(crAngle) * crLen;
+          crY += Math.sin(crAngle) * crLen;
+          cx.lineTo(crX, crY);
+        }
+        var cAlpha = 0.25 + Math.random() * 0.4;
+        cx.strokeStyle = opts.crackColor
+          ? opts.crackColor.replace('ALPHA', cAlpha.toFixed(2))
+          : 'rgba(220,220,220,' + cAlpha.toFixed(2) + ')';
+        cx.lineWidth = 0.8 + Math.random() * 1.5;
+        cx.stroke();
+        // ひび割れ周辺のにじみ（微妙なハロー）
+        cx.strokeStyle = opts.crackColor
+          ? opts.crackColor.replace('ALPHA', (cAlpha * 0.2).toFixed(2))
+          : 'rgba(220,220,220,' + (cAlpha * 0.2).toFixed(2) + ')';
+        cx.lineWidth = 2.5 + Math.random() * 2;
+        cx.stroke();
+      }
+      // 微細な傷点（スパッタ）
+      for (var d = 0; d < 40; d++) {
+        var dx = Math.random() * S, dy = Math.random() * S;
+        var dAlpha = 0.05 + Math.random() * 0.15;
+        cx.fillStyle = opts.dotColor
+          ? opts.dotColor.replace('ALPHA', dAlpha.toFixed(2))
+          : 'rgba(190,190,190,' + dAlpha.toFixed(2) + ')';
+        cx.fillRect(dx, dy, 1 + Math.random() * 2, 1 + Math.random() * 2);
+      }
+      var tex = new THREE.CanvasTexture(cv);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    // ライト系パーツ用（白・シルバー面）
+    var scratchTexLight = makeScratchTex({
+      size: 256,
+      base: '#787878',
+      scratchColor: 'rgba(210,210,210,ALPHA)',
+      crackColor: 'rgba(230,230,230,ALPHA)',
+      dotColor: 'rgba(200,200,200,ALPHA)'
+    });
+
+    // ダーク系パーツ用（赤・暗色面）
+    var scratchTexDark = makeScratchTex({
+      size: 256,
+      base: '#707070',
+      scratchColor: 'rgba(170,170,170,ALPHA)',
+      crackColor: 'rgba(190,190,190,ALPHA)',
+      dotColor: 'rgba(160,160,160,ALPHA)'
+    });
+
     // ===== マテリアル =====
     var M = {
-      wh: new THREE.MeshStandardMaterial({ color: 0xe6e6e6, roughness: 0.42, metalness: 0.06 }),
-      whClean: new THREE.MeshStandardMaterial({ color: 0xeeeef2, roughness: 0.38, metalness: 0.04 }),
-      rd: new THREE.MeshStandardMaterial({ color: 0xb31e22, roughness: 0.44, metalness: 0.06 }),
+      wh: new THREE.MeshStandardMaterial({ color: 0xe6e6e6, roughness: 0.45, metalness: 0.06, roughnessMap: scratchTexLight }),
+      whClean: new THREE.MeshStandardMaterial({ color: 0xeeeef2, roughness: 0.40, metalness: 0.04, roughnessMap: scratchTexLight }),
+      rd: new THREE.MeshStandardMaterial({ color: 0xb31e22, roughness: 0.46, metalness: 0.06, roughnessMap: scratchTexDark }),
       rdDk: new THREE.MeshStandardMaterial({ color: 0x8a1518, roughness: 0.5, metalness: 0.08 }),
       bl: new THREE.MeshStandardMaterial({ color: 0x1a3cb5, roughness: 0.35, metalness: 0.08 }),
-      sv: new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.3, metalness: 0.55 }),
-      svDk: new THREE.MeshStandardMaterial({ color: 0x686e76, roughness: 0.38, metalness: 0.48 }),
-      dk: new THREE.MeshStandardMaterial({ color: 0x2c3038, roughness: 0.4, metalness: 0.5 }),
-      bk: new THREE.MeshStandardMaterial({ color: 0x0e0e12, roughness: 0.12, metalness: 0.65 }),
+      sv: new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.32, metalness: 0.55, roughnessMap: scratchTexLight }),
+      svDk: new THREE.MeshStandardMaterial({ color: 0x686e76, roughness: 0.40, metalness: 0.48, roughnessMap: scratchTexDark }),
+      dk: new THREE.MeshStandardMaterial({ color: 0x2c3038, roughness: 0.42, metalness: 0.5, roughnessMap: scratchTexDark }),
+      bk: new THREE.MeshStandardMaterial({ color: 0x0e0e12, roughness: 0.14, metalness: 0.65, roughnessMap: scratchTexDark }),
       lens: new THREE.MeshStandardMaterial({ color: 0x080810, roughness: 0.04, metalness: 0.88, emissive: 0x0a0a18, emissiveIntensity: 0.15 }),
       hlM: new THREE.MeshBasicMaterial({ color: 0xffffff }),
       panelLine: new THREE.MeshStandardMaterial({ color: 0xccccd0, roughness: 0.55, metalness: 0.1 }),
