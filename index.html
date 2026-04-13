@@ -1858,19 +1858,22 @@
         var xwing = buildXWing();
         xwing.scale.set(0.8, 0.8, 0.8);
         scene.add(xwing);
-        var orbitR = 5 + xi * 0.8;
-        var orbitH = 5 + xi * 0.5;
+        var orbitR = 4.0 + xi * 0.8;
+        var orbitH = 3.5 + xi * 0.5;
         var phase = (xi / 3) * Math.PI * 2;
         battleFighters.push({
           mesh: xwing,
           type: 'xwing',
           orbitRadius: orbitR,
           orbitHeight: orbitH,
-          orbitSpeed: 0.008 + xi * 0.002,
+          orbitSpeed: 0.010 + xi * 0.003,
           phase: phase,
           verticalPhase: xi * 1.2,
-          verticalAmp: 1.0 + xi * 0.3,
-          rollAmp: 0.3,
+          verticalAmp: 2.0 + xi * 0.5,
+          rollAmp: 0.5,
+          orbitTilt: 1.0 + xi * 0.4,
+          radiusVar: 0.8 + xi * 0.2,
+          radiusPhase: xi * 0.8,
           fireRate: 80 + xi * 20,
           fireCooldown: Math.floor(Math.random() * 60),
           hp: 3,
@@ -1883,19 +1886,22 @@
         var tfighter = buildTIEFighter();
         tfighter.scale.set(0.7, 0.7, 0.7);
         scene.add(tfighter);
-        var tOrbitR = 5.5 + ti * 0.7;
-        var tOrbitH = 5.5 + ti * 0.4;
+        var tOrbitR = 4.2 + ti * 0.7;
+        var tOrbitH = 3.5 + ti * 0.4;
         var tPhase = (ti / 4) * Math.PI * 2 + Math.PI * 0.5;
         battleFighters.push({
           mesh: tfighter,
           type: 'tie',
           orbitRadius: tOrbitR,
           orbitHeight: tOrbitH,
-          orbitSpeed: 0.010 + ti * 0.002,
+          orbitSpeed: 0.012 + ti * 0.003,
           phase: tPhase,
           verticalPhase: ti * 0.9 + 0.5,
-          verticalAmp: 0.8 + ti * 0.25,
-          rollAmp: 0.25,
+          verticalAmp: 1.8 + ti * 0.3,
+          rollAmp: 0.4,
+          orbitTilt: 0.8 + ti * 0.3,
+          radiusVar: 0.7 + ti * 0.2,
+          radiusPhase: ti * 0.7 + 0.3,
           fireRate: 60 + ti * 15,
           fireCooldown: Math.floor(Math.random() * 50),
           hp: 2,
@@ -1924,18 +1930,28 @@
           return;
         }
 
-        // 軌道上を飛行
+        // 軌道上を飛行（縦横無尽に）
         f.phase += f.orbitSpeed;
-        f.verticalPhase += 0.012;
-        var px = Math.cos(f.phase) * f.orbitRadius;
-        var py = f.orbitHeight + Math.sin(f.verticalPhase) * f.verticalAmp;
-        var pz = Math.sin(f.phase) * f.orbitRadius;
+        f.verticalPhase += 0.02;
+        f.radiusPhase += 0.008;
+        var dynamicR = f.orbitRadius + Math.sin(f.radiusPhase) * f.radiusVar;
+        var px = Math.cos(f.phase) * dynamicR;
+        var py = f.orbitHeight + Math.sin(f.verticalPhase) * f.verticalAmp + Math.sin(f.phase * 1.7) * f.orbitTilt;
+        var pz = Math.sin(f.phase) * dynamicR;
+
+        // 地球（半径2.8）との衝突回避
+        var distFromCenter = Math.sqrt(px * px + py * py + pz * pz);
+        if (distFromCenter < 3.3) {
+          var safeScale = 3.3 / distFromCenter;
+          px *= safeScale; py *= safeScale; pz *= safeScale;
+        }
         f.mesh.position.set(px, py, pz);
 
         // 進行方向を向く
-        var nextPx = Math.cos(f.phase + 0.05) * f.orbitRadius;
-        var nextPy = f.orbitHeight + Math.sin(f.verticalPhase + 0.05) * f.verticalAmp;
-        var nextPz = Math.sin(f.phase + 0.05) * f.orbitRadius;
+        var nextDynamicR = f.orbitRadius + Math.sin(f.radiusPhase + 0.008) * f.radiusVar;
+        var nextPx = Math.cos(f.phase + 0.05) * nextDynamicR;
+        var nextPy = f.orbitHeight + Math.sin(f.verticalPhase + 0.05) * f.verticalAmp + Math.sin((f.phase + 0.05) * 1.7) * f.orbitTilt;
+        var nextPz = Math.sin(f.phase + 0.05) * nextDynamicR;
         var forward = new THREE.Vector3(nextPx - px, nextPy - py, nextPz - pz).normalize();
 
         // lookAt を使って進行方向を向かせる
@@ -1943,7 +1959,7 @@
         f.mesh.lookAt(lookTarget);
 
         // バンク角（旋回時にロール）
-        f.mesh.rotation.z += Math.sin(f.phase * 2) * f.rollAmp * 0.02;
+        f.mesh.rotation.z += Math.sin(f.phase * 2) * f.rollAmp * 0.03;
 
         // 射撃
         f.fireCooldown--;
