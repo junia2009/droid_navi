@@ -1653,6 +1653,9 @@
     var battleFighters = [];
     var laserBolts = [];
     var explosions = [];
+    var HIT_DISTANCE = 0.4;
+    var MIN_RESPAWN_FRAMES = 180;
+    var RESPAWN_VARIANCE_FRAMES = 120;
 
     // --- X-Wing 構築 ---
     function buildXWing() {
@@ -1843,7 +1846,9 @@
       group.add(flash);
 
       scene.add(group);
-      return { group: group, parts: parts, flash: flash, life: 40, age: 0 };
+      var exp = { group: group, parts: parts, flash: flash, life: 40, age: 0 };
+      explosions.push(exp);
+      return exp;
     }
 
     // --- 戦闘機の配置 ---
@@ -1915,7 +1920,6 @@
             f.hp = f.type === 'xwing' ? 3 : 2;
             f.mesh.visible = true;
             f.phase += Math.PI * 0.7; // リスポーン時に位相をずらす
-            createExplosion(f.mesh.position.clone()); // リスポーンフラッシュ
           }
           return;
         }
@@ -1979,11 +1983,11 @@
         // ターゲットとの当たり判定
         if (bolt.target && bolt.target.alive) {
           var dist = bolt.mesh.position.distanceTo(bolt.target.mesh.position);
-          if (dist < 0.4) {
+          if (dist < HIT_DISTANCE) {
             bolt.target.hp--;
             if (bolt.target.hp <= 0) {
               bolt.target.alive = false;
-              bolt.target.respawnTimer = 180 + Math.floor(Math.random() * 120); // 3〜5秒後リスポーン
+              bolt.target.respawnTimer = MIN_RESPAWN_FRAMES + Math.floor(Math.random() * RESPAWN_VARIANCE_FRAMES);
               createExplosion(bolt.target.mesh.position.clone());
             }
             scene.remove(bolt.mesh);
@@ -2017,14 +2021,6 @@
         }
       }
     }
-
-    // createExplosion のラッパー（爆発をexplosions配列にも追加）
-    var _origCreateExplosion = createExplosion;
-    createExplosion = function(pos) {
-      var e = _origCreateExplosion(pos);
-      explosions.push(e);
-      return e;
-    };
 
     // ===== 宇宙背景（スターフィールド）=====
     var stars;
