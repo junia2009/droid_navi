@@ -1490,60 +1490,160 @@
       //      コリオリ力により北半球は反時計回り、南半球は時計回りに渦を巻く
       // ═══════════════════════════════════════
 
-      var cloudDefs = [
-        // ── 層雲: 中緯度低気圧帯・海洋上の広範囲な雲 ──
-        { type: 'stratus', lat:  50, lon: -30, s: 0.70 },  // 北大西洋（偏西風帯の低気圧）
-        { type: 'stratus', lat:  55, lon:  15, s: 0.60 },  // 北欧・北海上空
-        { type: 'stratus', lat:  45, lon: 160, s: 0.65 },  // 北太平洋（低気圧帯）
-        { type: 'stratus', lat: -45, lon:  50, s: 0.55 },  // 南インド洋（暴風圏）
-        { type: 'stratus', lat: -50, lon: -70, s: 0.60 },  // 南太平洋（偏西風帯）
-        { type: 'stratus', lat: -48, lon: 150, s: 0.50 },  // タスマニア南方
-        { type: 'stratus', lat:  35, lon:-125, s: 0.55 },  // 北太平洋東部（海洋性層雲）
-        { type: 'stratus', lat: -20, lon: -85, s: 0.45 },  // ペルー沖（海洋性層雲）
-        { type: 'stratus', lat:  60, lon:  70, s: 0.50 },  // シベリア西部
-
-        // ── 積雲クラスター: 熱帯収束帯(ITCZ)・大陸上の対流雲群 ──
-        { type: 'cumulus', lat:   8, lon:  30, s: 0.55 },  // アフリカ中部（ITCZ）
-        { type: 'cumulus', lat:  -5, lon: -60, s: 0.60 },  // アマゾン（熱帯対流）
-        { type: 'cumulus', lat:   5, lon: 110, s: 0.50 },  // 東南アジア・マレー諸島
-        { type: 'cumulus', lat:  -8, lon: 130, s: 0.45 },  // パプアニューギニア
-        { type: 'cumulus', lat:  10, lon:  80, s: 0.45 },  // インド洋・ベンガル湾
-        { type: 'cumulus', lat:   3, lon: -30, s: 0.40 },  // 大西洋ITCZ
-        { type: 'cumulus', lat:  12, lon:-100, s: 0.40 },  // メキシコ太平洋側
-        { type: 'cumulus', lat:  -3, lon:  25, s: 0.35 },  // コンゴ盆地
-        { type: 'cumulus', lat:  30, lon: 120, s: 0.40 },  // 中国東部・東シナ海
-        { type: 'cumulus', lat:  25, lon: -80, s: 0.35 },  // カリブ海
-
-        // ── 台風・熱帯低気圧: スパイラル雲バンド ──
-        { type: 'cyclone', lat:  18, lon: 135, s: 0.55 },  // 西太平洋（台風）
-        { type: 'cyclone', lat:  22, lon: -65, s: 0.45 },  // カリブ海（ハリケーン）
-        { type: 'cyclone', lat: -15, lon:  65, s: 0.40, cw: true },  // 南インド洋（サイクロン）
-
-        // ── 巻雲: ジェット気流に沿った高層雲 ──
-        { type: 'cirrus', lat:  38, lon: -60, s: 0.50 },   // 北米東海岸上空
-        { type: 'cirrus', lat:  42, lon:  30, s: 0.45 },   // 地中海上空
-        { type: 'cirrus', lat:  35, lon: 140, s: 0.40 },   // 日本上空
-        { type: 'cirrus', lat: -35, lon: 175, s: 0.35 },   // ニュージーランド上空
-        { type: 'cirrus', lat:  48, lon: -110, s: 0.40 },  // 北米ロッキー山脈上空
-        { type: 'cirrus', lat: -30, lon: -50, s: 0.35 },   // 南米南部上空
+      // フォールバック用の静的雲定義
+      var staticCloudDefs = [
+        { type: 'stratus', lat:  50, lon: -30, s: 0.70 },
+        { type: 'stratus', lat:  55, lon:  15, s: 0.60 },
+        { type: 'stratus', lat:  45, lon: 160, s: 0.65 },
+        { type: 'stratus', lat: -45, lon:  50, s: 0.55 },
+        { type: 'stratus', lat: -50, lon: -70, s: 0.60 },
+        { type: 'stratus', lat: -48, lon: 150, s: 0.50 },
+        { type: 'stratus', lat:  35, lon:-125, s: 0.55 },
+        { type: 'stratus', lat: -20, lon: -85, s: 0.45 },
+        { type: 'stratus', lat:  60, lon:  70, s: 0.50 },
+        { type: 'cumulus', lat:   8, lon:  30, s: 0.55 },
+        { type: 'cumulus', lat:  -5, lon: -60, s: 0.60 },
+        { type: 'cumulus', lat:   5, lon: 110, s: 0.50 },
+        { type: 'cumulus', lat:  -8, lon: 130, s: 0.45 },
+        { type: 'cumulus', lat:  10, lon:  80, s: 0.45 },
+        { type: 'cumulus', lat:   3, lon: -30, s: 0.40 },
+        { type: 'cumulus', lat:  12, lon:-100, s: 0.40 },
+        { type: 'cumulus', lat:  -3, lon:  25, s: 0.35 },
+        { type: 'cumulus', lat:  30, lon: 120, s: 0.40 },
+        { type: 'cumulus', lat:  25, lon: -80, s: 0.35 },
+        { type: 'cyclone', lat:  18, lon: 135, s: 0.55 },
+        { type: 'cyclone', lat:  22, lon: -65, s: 0.45 },
+        { type: 'cyclone', lat: -15, lon:  65, s: 0.40, cw: true },
+        { type: 'cirrus', lat:  38, lon: -60, s: 0.50 },
+        { type: 'cirrus', lat:  42, lon:  30, s: 0.45 },
+        { type: 'cirrus', lat:  35, lon: 140, s: 0.40 },
+        { type: 'cirrus', lat: -35, lon: 175, s: 0.35 },
+        { type: 'cirrus', lat:  48, lon: -110, s: 0.40 },
+        { type: 'cirrus', lat: -30, lon: -50, s: 0.35 },
       ];
 
-      cloudDefs.forEach(function(cd) {
+      // 雲メッシュを追跡（動的に入れ替えるため）
+      var cloudMeshes = [];
+
+      function addCloudFromDef(cd) {
+        var mesh;
         switch (cd.type) {
-          case 'stratus':
-            earthMesh.add(buildStratus(cd.lat, cd.lon, cd.s));
-            break;
-          case 'cumulus':
-            earthMesh.add(buildCumulus(cd.lat, cd.lon, cd.s));
-            break;
-          case 'cyclone':
-            earthMesh.add(buildCyclone(cd.lat, cd.lon, cd.s, !!cd.cw));
-            break;
-          case 'cirrus':
-            earthMesh.add(buildCirrus(cd.lat, cd.lon, cd.s));
-            break;
+          case 'stratus':  mesh = buildStratus(cd.lat, cd.lon, cd.s); break;
+          case 'cumulus':  mesh = buildCumulus(cd.lat, cd.lon, cd.s); break;
+          case 'cyclone':  mesh = buildCyclone(cd.lat, cd.lon, cd.s, !!cd.cw); break;
+          case 'cirrus':   mesh = buildCirrus(cd.lat, cd.lon, cd.s); break;
         }
-      });
+        if (mesh) {
+          cloudMeshes.push(mesh);
+          earthMesh.add(mesh);
+        }
+      }
+
+      function clearClouds() {
+        cloudMeshes.forEach(function(m) { earthMesh.remove(m); });
+        cloudMeshes = [];
+      }
+
+      function renderClouds(defs) {
+        clearClouds();
+        defs.forEach(addCloudFromDef);
+      }
+
+      // ─── 天気コード → 雲タイプ変換 ───
+      // Open-Meteo WMO Weather interpretation codes:
+      //   0: 快晴, 1: 晴れ, 2: 一部曇り, 3: 曇り
+      //   45,48: 霧
+      //   51-55: 霧雨, 61-65: 雨, 71-75: 雪
+      //   80-82: にわか雨, 95-99: 雷雨
+      function weatherCodeToCloudDef(lat, lon, code, cloudCover) {
+        // 雲量に基づくサイズ係数 (0〜100% → 0.30〜0.70)
+        var sizeFactor = 0.30 + (cloudCover / 100) * 0.40;
+
+        if (code === 0) return null;  // 快晴: 雲なし
+        if (code === 1) return { type: 'cirrus', lat: lat, lon: lon, s: sizeFactor * 0.7 };
+        if (code === 2) return { type: 'stratus', lat: lat, lon: lon, s: sizeFactor * 0.8 };
+        if (code === 3) return { type: 'stratus', lat: lat, lon: lon, s: sizeFactor };
+        if (code === 45 || code === 48) return { type: 'stratus', lat: lat, lon: lon, s: sizeFactor * 0.9 };
+        if (code >= 51 && code <= 55) return { type: 'stratus', lat: lat, lon: lon, s: sizeFactor };
+        if (code >= 61 && code <= 65) return { type: 'cumulus', lat: lat, lon: lon, s: sizeFactor };
+        if (code >= 71 && code <= 75) return { type: 'stratus', lat: lat, lon: lon, s: sizeFactor };
+        if (code >= 80 && code <= 82) return { type: 'cumulus', lat: lat, lon: lon, s: sizeFactor };
+        // 雷雨 (95-99): 台風/サイクロン型
+        if (code >= 95) return { type: 'cyclone', lat: lat, lon: lon, s: sizeFactor, cw: lat < 0 };
+        return { type: 'cirrus', lat: lat, lon: lon, s: sizeFactor * 0.7 };
+      }
+
+      // ─── 実天気データ取得用の観測地点（世界30箇所）───
+      // 主要都市 + 海洋上のポイントで地球全体をカバー
+      var globalObsPoints = [
+        { lat: 35.68, lon: 139.69 },   // 東京
+        { lat: 51.51, lon:  -0.13 },   // ロンドン
+        { lat: 40.71, lon: -74.01 },   // ニューヨーク
+        { lat:-33.87, lon: 151.21 },   // シドニー
+        { lat: 55.76, lon:  37.62 },   // モスクワ
+        { lat:-23.55, lon: -46.63 },   // サンパウロ
+        { lat: 28.61, lon:  77.21 },   // デリー
+        { lat: 39.90, lon: 116.40 },   // 北京
+        { lat: 30.04, lon:  31.24 },   // カイロ
+        { lat: -1.29, lon:  36.82 },   // ナイロビ
+        { lat: 48.86, lon:   2.35 },   // パリ
+        { lat:-34.60, lon: -58.38 },   // ブエノスアイレス
+        { lat: 13.76, lon: 100.50 },   // バンコク
+        { lat:  1.35, lon: 103.82 },   // シンガポール
+        { lat: 19.43, lon: -99.13 },   // メキシコシティ
+        { lat: -6.21, lon: 106.85 },   // ジャカルタ
+        { lat: 37.57, lon: 126.98 },   // ソウル
+        { lat: 64.15, lon: -21.94 },   // レイキャビク
+        { lat: 49.28, lon:-123.12 },   // バンクーバー
+        { lat: 33.87, lon:-118.24 },   // ロサンゼルス
+        { lat:-41.29, lon: 174.78 },   // ウェリントン
+        // 海洋上の観測ポイント（雲カバレッジ向上）
+        { lat: 50.0, lon: -30.0 },     // 北大西洋
+        { lat:-45.0, lon:  50.0 },     // 南インド洋
+        { lat:  5.0, lon: -160.0 },    // 中部太平洋
+        { lat:-50.0, lon: -70.0 },     // 南太平洋
+        { lat: 45.0, lon: 160.0 },     // 北太平洋
+        { lat: -8.0, lon: 130.0 },     // パプアニューギニア沖
+        { lat: 10.0, lon:  80.0 },     // ベンガル湾
+        { lat: 60.0, lon:  70.0 },     // シベリア
+        { lat:-20.0, lon: -85.0 },     // ペルー沖
+      ];
+
+      // ─── 実天気データ取得 → 雲を動的に生成 ───
+      function fetchGlobalWeatherAndUpdateClouds() {
+        var lats = globalObsPoints.map(function(p) { return p.lat; }).join(',');
+        var lons = globalObsPoints.map(function(p) { return p.lon; }).join(',');
+        var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lats +
+          '&longitude=' + lons +
+          '&current=weather_code,cloud_cover&timezone=auto&forecast_days=1';
+
+        fetch(url).then(function(r) { return r.json(); }).then(function(results) {
+          // Open-Meteo は複数地点の場合、配列で返す
+          if (!Array.isArray(results)) results = [results];
+          var newDefs = [];
+          results.forEach(function(data, i) {
+            if (!data || !data.current) return;
+            var code = data.current.weather_code;
+            var cover = data.current.cloud_cover != null ? data.current.cloud_cover : 50;
+            var pt = globalObsPoints[i];
+            var def = weatherCodeToCloudDef(pt.lat, pt.lon, code, cover);
+            if (def) newDefs.push(def);
+          });
+
+          if (newDefs.length > 0) {
+            renderClouds(newDefs);
+          }
+          // 取得失敗 or 雲が0個の場合は静的雲のまま維持
+        }).catch(function() {
+          // フェッチ失敗時は静的雲のまま（何もしない）
+        });
+      }
+
+      // 初期表示: 静的な雲をまず描画（即時表示用）
+      renderClouds(staticCloudDefs);
+
+      // ページロード時に実天気データを取得して雲を更新
+      fetchGlobalWeatherAndUpdateClouds();
     })();
 
     // ===== 宇宙背景（スターフィールド）=====
