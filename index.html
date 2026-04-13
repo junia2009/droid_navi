@@ -1615,7 +1615,7 @@
         var lons = globalObsPoints.map(function(p) { return p.lon; }).join(',');
         var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lats +
           '&longitude=' + lons +
-          '&current=weather_code,cloud_cover&timezone=auto&forecast_days=1';
+          '&current=weather_code,cloud_cover&timezone=auto';
 
         fetch(url).then(function(r) { return r.json(); }).then(function(results) {
           // Open-Meteo は複数地点の場合、配列で返す
@@ -1634,8 +1634,9 @@
             renderClouds(newDefs);
           }
           // 取得失敗 or 雲が0個の場合は静的雲のまま維持
-        }).catch(function() {
+        }).catch(function(e) {
           // フェッチ失敗時は静的雲のまま（何もしない）
+          console.warn('Global weather fetch failed, using static clouds:', e);
         });
       }
 
