@@ -1941,7 +1941,7 @@
 
         // 地球（半径2.8）との衝突回避
         var distFromCenter = Math.sqrt(px * px + py * py + pz * pz);
-        if (distFromCenter < 3.3) {
+        if (distFromCenter > 0 && distFromCenter < 3.3) {
           var safeScale = 3.3 / distFromCenter;
           px *= safeScale; py *= safeScale; pz *= safeScale;
         }
