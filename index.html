@@ -1745,7 +1745,7 @@
 
       // できること
       if (/できること|機能|ヘルプ|help|何が|what can/i.test(lower)) {
-        addMsg('ピーピー！私にできること：\n\n☀️ 「天気を教えて」— 現在地の天気\n⏰ 「今何時？」— 現在時刻\n📅 「今日は何日？」— 日付・曜日\n⚔️ 「ダース・ベイダーって誰？」— スターウォーズ百科事典\n🌌 「アソーカ・タノは？」「オーダー66って？」「ムスタファーは？」\n🚀 「Aウイングは？」「ベスカー鋼は？」「ダークセーバーとは？」\n🤖 「エズラ・ブリッジャーは？」「ジン・アーソは？」「スノークは？」\n🌍 「スカリフは？」「ベスピンは？」「ジオノーシスは？」\n💡 「ジェダイ・コードとは？」「シスのコードとは？」「ライトセーバーの色は？」\n😄 何でも話しかけてください！（150以上のキーワードに対応！）', 'bot');
+        addMsg('ピーピー！私にできること：\n\n☀️ 「天気を教えて」— 現在地の天気\n⏰ 「今何時？」— 現在時刻\n📅 「今日は何日？」— 日付・曜日\n⚔️ スターウォーズ百科事典（150以上のキーワードに対応！）\n　例：「ダース・ベイダー」「ジン・アーソ」「スカリフ」「ダークセーバー」「ジェダイコード」など\n😄 何でも話しかけてください！', 'bot');
         return;
       }
 
@@ -1756,7 +1756,7 @@
       }
 
       // スターウォーズ
-      if (/スターウォーズ|スター.?ウォーズ|star.?wars|ジェダイ|シス|ライトセーバー|lightsaber|jedi|sith|フォース|銀河帝国|反乱同盟|反乱軍|レジスタンス|ファースト.?オーダー|ファーストオーダー|first.?order|ダース.?ベイダー|ダース.?モール|ダース.?シディアス|darth|ベイダー|vader|ヨーダ|yoda|アナキン|anakin|カイロ.?レン|kylo|マンダロリアン|mandalorian|グローグー|grogu|ベビー.?ヨーダ|baby.?yoda|チューバッカ|chewbacca|r2.?d2|c.?3po|bb.?8|ミレニアム.?ファルコン|millennium.?falcon|デス.?スター|death.?star|xウイング|x.?wing|aウイング|a.?wing|yウイング|y.?wing|bウイング|b.?wing|タイ.?ファイター|tie.?fighter|スター.?デストロイヤー|star.?destroyer|at.?at\b|at.?st\b|タトゥイーン|tatooine|アルデラーン|alderaan|コルサント|coruscant|ナブー|naboo|ダゴバ|dagobah|ベスピン|bespin|クラウド.?シティ|cloud.?city|スカリフ|scarif|ジオノーシス|geonosis|ストームトルーパー|stormtrooper|クローン.?戦争|クローン.?ウォーズ|clone.?wars|パルパティーン|palpatine|オビ.?ワン|obi.?wan|ケノービ|kenobi|ハン.?ソロ|han.?solo|ジャバ|jabba|レイア|leia|ルーク|luke|ベン.?ソロ|ben.?solo|\brey\b|クワイ.?ガン|qui.?gon|パドメ|アミダラ|padme|amidala|メイス.?ウィンドゥ|mace.?windu|ドゥークー|dooku|タイラナス|tyranus|グリーヴァス|grievous|アソーカ|ahsoka|ランド|calrissian|カルリジアン|\bfinn\b|\bフィン\b|ポー.?ダメロン|poe.?dameron|ボバ.?フェット|boba.?fett|ジャンゴ.?フェット|jango.?fett|ターキン|tarkin|オーダー.?66|order.?66|ミディクロリアン|midichlorian|ホロクロン|holocron|ムスタファー|mustafar|カミーノ|kamino|エンドア\b|endor|ジャクー|jakku|マンダロア|mandalore|スレイブ.?[1I一]|slave.?[1i]|ファイアスプレイ|firespray|アンドー\b|キャシアン|andor|ボバ.?フェットの本|book.?of.?boba|バッド.?バッチ|bad.?batch|スノーク|snoke|ファズマ|phasma|ジン.?アーソ|jyn.?erso|k.?2so|ケーツー|クレニック|krennic|ゲイレン|galen.?erso|ジャー.?ジャー|jar.?jar|ビンクス|binks|ワット\b|watto|ワンパ|wampa|エワーク|ewok|エズラ|ezra|反乱者たち|rebels.{0,5}シリーズ|rebels.{0,5}アニメ|ヘラ|hera.?syndulla|サビーン|sabine|カナン|kanan|ダークセーバー|darksaber|アクバー|ackbar|ウェッジ|wedge.?antilles|プレイガス|plagueis|ジェダイ.?コード|jedi.?code|シスのコード|sith.?code|ライトセーバーの色|lightsaber.?col|ウーキー|wookiee|wookie|ヌート.?ガンレイ|nute.?gunray|ニモーディアン|neimoidian|ベスカー|beskar|ポルグ|porg|ヌート|gunray/i.test(lower)) {
+      if (/スターウォーズ|スター.?ウォーズ|star.?wars|ジェダイ|シス|ライトセーバー|lightsaber|jedi|sith|フォース|銀河帝国|反乱同盟|反乱軍|レジスタンス|ファースト.?オーダー|ファーストオーダー|first.?order|ダース.?ベイダー|ダース.?モール|ダース.?シディアス|darth|ベイダー|vader|ヨーダ|yoda|アナキン|anakin|カイロ.?レン|kylo|マンダロリアン|mandalorian|グローグー|grogu|ベビー.?ヨーダ|baby.?yoda|チューバッカ|chewbacca|r2.?d2|c.?3po|bb.?8|ミレニアム.?ファルコン|millennium.?falcon|デス.?スター|death.?star|xウイング|x.?wing|aウイング|a.?wing|yウイング|y.?wing|bウイング|b.?wing|タイ.?ファイター|tie.?fighter|スター.?デストロイヤー|star.?destroyer|at.?at\b|at.?st\b|タトゥイーン|tatooine|アルデラーン|alderaan|コルサント|coruscant|ナブー|naboo|ダゴバ|dagobah|ベスピン|bespin|クラウド.?シティ|cloud.?city|スカリフ|scarif|ジオノーシス|geonosis|ストームトルーパー|stormtrooper|クローン.?戦争|クローン.?ウォーズ|clone.?wars|パルパティーン|palpatine|オビ.?ワン|obi.?wan|ケノービ|kenobi|ハン.?ソロ|han.?solo|ジャバ|jabba|レイア|leia|ルーク|luke|ベン.?ソロ|ben.?solo|\brey\b|クワイ.?ガン|qui.?gon|パドメ|アミダラ|padme|amidala|メイス.?ウィンドゥ|mace.?windu|ドゥークー|dooku|タイラナス|tyranus|グリーヴァス|grievous|アソーカ|ahsoka|ランド|calrissian|カルリジアン|\bfinn\b|\bフィン\b|ポー.?ダメロン|poe.?dameron|ボバ.?フェット|boba.?fett|ジャンゴ.?フェット|jango.?fett|ターキン|tarkin|オーダー.?66|order.?66|ミディクロリアン|midichlorian|ホロクロン|holocron|ムスタファー|mustafar|カミーノ|kamino|エンドア\b|endor|ジャクー|jakku|マンダロア|mandalore|スレイブ.?[1I一]|slave.?[1i]|ファイアスプレイ|firespray|アンドー\b|キャシアン|andor|ボバ.?フェットの本|book.?of.?boba|バッド.?バッチ|bad.?batch|スノーク|snoke|ファズマ|phasma|ジン.?アーソ|jyn.?erso|k.?2so|ケーツーエスオー|クレニック|krennic|ゲイレン|galen.?erso|ジャー.?ジャー|jar.?jar|ビンクス|binks|ワット\b|watto|ワンパ|wampa|エワーク|ewok|エズラ|ezra|反乱者たち|rebels.{0,5}シリーズ|rebels.{0,5}アニメ|ヘラ|hera.?syndulla|サビーン|sabine|カナン|kanan|ダークセーバー|darksaber|アクバー|ackbar|ウェッジ|wedge.?antilles|プレイガス|plagueis|ジェダイ.?コード|jedi.?code|シスのコード|sith.?code|ライトセーバーの色|lightsaber.?col|ウーキー|wookiee|wookie|ヌート.?ガンレイ|nute.?gunray|ニモーディアン|neimoidian|ベスカー|beskar|ポルグ|porg|ヌート|gunray/i.test(lower)) {
         addMsg(getStarWarsResponse(lower), 'bot');
         return;
       }
@@ -2071,7 +2071,7 @@
         return 'ピーピービー！ジン・アーソは「ローグ・ワン」の主人公！デス・スターの設計者ゲイレン・アーソの娘で、帝国に両親を奪われ孤独に生き延びてきた反骨の戦士。「反乱同盟には希望がある（Rebellions are built on hope）」という彼女の言葉がタイトルにもなっています。スカリフで仲間全員と共にデス・スターの設計図を命がけで奪い取った英雄です！';
       }
       // K-2SO
-      if (/k.?2so|ケーツーエスオー|ケイツー/i.test(lower)) {
+      if (/k.?2so|ケーツーエスオー/i.test(lower)) {
         return 'ビービービー！K-2SOは「ローグ・ワン」に登場する元帝国軍のエンフォーサー・ドロイド！キャシアン・アンドーに再プログラムされた後は反乱同盟の頼れる仲間に。直接すぎる物言いとシニカルなユーモアが最高で「あなたが生き残る確率は…低いです」とずけずけ言いながら自己犠牲で仲間を守った純粋さが泣けます。同期の我々ドロイドの誇りです！';
       }
       // ディレクター・クレニック
