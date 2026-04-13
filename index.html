@@ -186,49 +186,49 @@
       var S = 512;
       var effects = { scratches: [], cracks: [] };
       // 傷（スクラッチ）データ：位置・角度・長さ・カーブ量・不透明度・線幅
-      for (var s = 0; s < 45; s++) {
+      for (var s = 0; s < 12; s++) {
         var ang = Math.random() * Math.PI;
-        var len = 10 + Math.random() * 60;
+        var len = 20 + Math.random() * 70;
         effects.scratches.push({
           sx: Math.random() * S,  sy: Math.random() * S,
           ang: ang, len: len,
-          mx: (Math.random() - 0.5) * 14, my: (Math.random() - 0.5) * 14,
-          alpha: 0.10 + Math.random() * 0.18,
-          lw: 0.4 + Math.random() * 0.9
+          mx: (Math.random() - 0.5) * 5, my: (Math.random() - 0.5) * 5,
+          alpha: 0.07 + Math.random() * 0.10,
+          lw: 0.3 + Math.random() * 0.5
         });
       }
       // ひび割れ（クラック）データ：放射状に分岐する折れ線
-      for (var cr = 0; cr < 5; cr++) {
+      for (var cr = 0; cr < 2; cr++) {
         var crack = {
           crx: (Math.floor(Math.random() * 4) + 0.25 + Math.random() * 0.5) * (S / 4),
           cry: (Math.floor(Math.random() * 4) + 0.25 + Math.random() * 0.5) * (S / 4),
           branches: []
         };
-        var branchCount = 2 + Math.floor(Math.random() * 3);
+        var branchCount = 2 + Math.floor(Math.random() * 2);
         for (var b = 0; b < branchCount; b++) {
-          var bAng = (b / branchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
-          var segs = 4 + Math.floor(Math.random() * 3);
-          var totalLen = 18 + Math.random() * 40;
+          var bAng = (b / branchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+          var segs = 5 + Math.floor(Math.random() * 3);
+          var totalLen = 22 + Math.random() * 35;
           var segLen = totalLen / segs;
           var pts = [{ x: crack.crx, y: crack.cry }];
           var px = crack.crx, py = crack.cry;
           for (var bs = 0; bs < segs; bs++) {
-            bAng += (Math.random() - 0.5) * 0.55;
+            bAng += (Math.random() - 0.5) * 0.30;
             px += Math.cos(bAng) * segLen;
             py += Math.sin(bAng) * segLen;
             pts.push({ x: px, y: py });
-            // 途中からサブブランチを一本追加
-            if (bs === Math.floor(segs * 0.5) && Math.random() > 0.35) {
-              var sbAng = bAng + (Math.random() > 0.5 ? 1 : -1) * (0.45 + Math.random() * 0.5);
-              var sbLen = segLen * (0.4 + Math.random() * 0.5);
+            // 途中からサブブランチを一本追加（確率を下げる）
+            if (bs === Math.floor(segs * 0.5) && Math.random() > 0.65) {
+              var sbAng = bAng + (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.4);
+              var sbLen = segLen * (0.35 + Math.random() * 0.4);
               crack.branches.push({
                 points: [{ x: px, y: py }, { x: px + Math.cos(sbAng) * sbLen, y: py + Math.sin(sbAng) * sbLen }],
-                alpha: 0.12 + Math.random() * 0.14,
-                lw: 0.5 + Math.random() * 0.8
+                alpha: 0.09 + Math.random() * 0.10,
+                lw: 0.4 + Math.random() * 0.5
               });
             }
           }
-          crack.branches.push({ points: pts, alpha: 0.20 + Math.random() * 0.22, lw: 0.8 + Math.random() * 1.3 });
+          crack.branches.push({ points: pts, alpha: 0.14 + Math.random() * 0.14, lw: 0.5 + Math.random() * 0.8 });
         }
         effects.cracks.push(crack);
       }
