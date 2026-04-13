@@ -1237,24 +1237,27 @@
       scene.add(earthMesh);
     })();
 
-    // ===== 雲（地球大気圏：積雲シミュレーション）=====
+    // ===== 雲（地球大気圏：多様な雲型シミュレーション）=====
     // 物理的根拠:
     // 1. 雲は地球の大気圏（対流圏：地表〜高度12km）内に存在する
     //    → 地球オブジェクトの子要素として球面上に配置する
-    // 2. 凝結高度 (Lifting Condensation Level, LCL):
-    //    上昇した湿潤空気が断熱冷却で露点温度に達した高度 → 雲底は平坦・水平
-    // 3. 対流セル (Convective Cells):
-    //    不安定大気での熱的上昇気流が積雲を縦方向に発達させる
-    //    → 雲頂は複数の丸い塔状突起（積み重なった対流セル）
-    // 4. Mie散乱 (Mie Scattering):
-    //    雲粒（直径 1–100 μm の水滴・氷晶）は可視光の全波長域を等方的に散乱する
-    //    → 波長依存性が低く、雲は白色に見える
-    // 5. 緯度帯制限:
-    //    積雲は熱帯〜中緯度（緯度±60°以内）に多く発達する
-    //    極域は低温・乾燥で水蒸気が少ないため積雲はほとんど生じない
+    // 2. 雲の種類と規模:
+    //    - 層雲 (Stratus): 広範囲に広がる平坦な雲層（前線帯・海洋上）
+    //      幅 500〜2000 km 以上にわたり、空を覆う
+    //    - 積雲 (Cumulus): 熱対流による塔状の雲（熱帯・夏季大陸上）
+    //      個々の雲は 1〜10 km 程度だが、クラスターで数百 km に広がる
+    //    - 積乱雲・台風 (Cumulonimbus / Tropical Cyclone):
+    //      スパイラル状の雲バンドを持つ巨大な低気圧性渦
+    //      直径 200〜1000 km、目（eye）を中心に反時計回り（北半球）
+    //    - 巻雲 (Cirrus): 高高度（8〜12 km）の薄い氷晶雲
+    //      ジェット気流に沿って細長く広がる
+    // 3. Mie散乱 (Mie Scattering):
+    //    雲粒は可視光の全波長を等方的に散乱 → 白色に見える
+    // 4. 地球の雲被覆率は約 67% — 広い領域を覆う雲が必要
     (function() {
       var ER = 2.8;  // 地球半径
-      var CR = ER + 0.04; // 雲底高度（ER+0.04 ≈ 対流圏下層 1.5%分の浮き）
+      var CR = ER + 0.04; // 雲底高度（対流圏下層）
+      var CR_HIGH = ER + 0.08; // 巻雲高度（対流圏上層）
 
       // 球面座標 (緯度°, 経度°) → デカルト座標
       function spherePos(lat, lon, r) {
@@ -1267,10 +1270,10 @@
         );
       }
 
-      // Mie散乱近似: 完全拡散白色マテリアル（金属感ゼロ、粗さ最大）
+      // Mie散乱近似: 完全拡散白色マテリアル
       function makeCloudMat(opacity) {
         return new THREE.MeshStandardMaterial({
-          color: 0xf2f5ff,   // わずかに青みがかった白（大気散乱のブルーシフト）
+          color: 0xf2f5ff,
           roughness: 1.0,
           metalness: 0.0,
           transparent: true,
@@ -1279,56 +1282,9 @@
         });
       }
 
-      // 積雲生成（地球ローカル座標系）:
-      //   lat, lon = 雲底の緯度・経度（度）
-      //   scale    = 雲のサイズ係数
-      //   雲の Y 軸を球面の外向き法線（地球中心から放射方向）に揃える
-      function buildCumulus(lat, lon, scale) {
-        var grp = new THREE.Group();
-
-        // ── 雲底層（LCL面 - 扁平な楕円体で平坦な雲底を表現）──
-        // 凝結高度は同一高度なので y 方向を大きく圧縮（y_scale ≈ 0.32）
-        var baseSph = new THREE.Mesh(
-          new THREE.SphereGeometry(0.40 * scale, 14, 10),
-          makeCloudMat(0.60)
-        );
-        baseSph.scale.set(1.55, 0.32, 1.30);
-        baseSph.position.y = 0;
-        grp.add(baseSph);
-
-        // ── 対流セル群（積み重なる球体で上昇気流セルを表現）──
-        // 中央主柱: 最も強い上昇気流（雲の中心軸）
-        // 周辺セル: 乱流による不均一な成長（実際の積雲の不規則性）
-        var cells = [
-          // 中央主対流セル（下から上に密度が減少 → 不透明度が下がる）
-          { x: 0.00, y: 0.20, z: 0.00, r: 0.32, o: 0.84 },
-          { x: 0.00, y: 0.40, z: 0.00, r: 0.24, o: 0.78 },
-          { x: 0.00, y: 0.56, z: 0.00, r: 0.17, o: 0.68 },
-          // 第1周辺セル層（対流不安定による周辺発達）
-          { x: 0.22, y: 0.16, z: 0.08, r: 0.24, o: 0.76 },
-          { x:-0.20, y: 0.15, z: 0.10, r: 0.23, o: 0.75 },
-          { x: 0.12, y: 0.32, z:-0.16, r: 0.20, o: 0.72 },
-          { x:-0.14, y: 0.30, z: 0.18, r: 0.19, o: 0.70 },
-          { x: 0.24, y: 0.28, z:-0.10, r: 0.18, o: 0.68 },
-          { x:-0.22, y: 0.26, z:-0.08, r: 0.17, o: 0.66 },
-          // 第2周辺セル層（さらに外側・上部 - 密度低下）
-          { x: 0.08, y: 0.46, z: 0.12, r: 0.15, o: 0.60 },
-          { x:-0.10, y: 0.44, z:-0.08, r: 0.14, o: 0.58 },
-          { x: 0.18, y: 0.38, z: 0.16, r: 0.13, o: 0.55 },
-          { x:-0.16, y: 0.36, z:-0.14, r: 0.12, o: 0.52 },
-        ];
-
-        cells.forEach(function(c) {
-          var mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(c.r * scale, 9, 7),
-            makeCloudMat(c.o)
-          );
-          mesh.position.set(c.x * scale, c.y * scale, c.z * scale);
-          grp.add(mesh);
-        });
-
-        // 球面上の位置に配置し、Y 軸を地球中心から外向きに向ける
-        var pos = spherePos(lat, lon, CR);
+      // グループを球面上に配置し、Y軸を外向き法線に揃える
+      function placeOnSphere(grp, lat, lon, r) {
+        var pos = spherePos(lat, lon, r);
         grp.position.copy(pos);
         grp.quaternion.setFromUnitVectors(
           new THREE.Vector3(0, 1, 0),
@@ -1337,20 +1293,239 @@
         return grp;
       }
 
-      // 雲の配置（緯度±55°以内、主要な雲帯をカバー）
-      // 熱帯収束帯（ITCZ）・中緯度低気圧帯に沿った分布
-      // s: 雲のサイズ係数（base球半径 = 0.40 * s）。熱帯の活発な雲は大きく(0.18〜0.19)、
-      //    偏西風帯の雲は小さめ(0.15〜0.16)に設定
+      // ──────────────────────────────────────
+      //  層雲 (Stratus) — 広範囲に広がる平坦な雲層
+      //  前線帯や海洋上で幅 500〜2000 km に広がる
+      //  複数の扁平な楕円体を重ねて不均一な雲層を表現
+      // ──────────────────────────────────────
+      function buildStratus(lat, lon, scale) {
+        var grp = new THREE.Group();
+        // メイン雲層: 非常に扁平で横に広い楕円体
+        var mainSheet = new THREE.Mesh(
+          new THREE.SphereGeometry(0.50 * scale, 18, 8),
+          makeCloudMat(0.45)
+        );
+        mainSheet.scale.set(2.2, 0.12, 1.8);
+        grp.add(mainSheet);
+        // 雲層の不均一性: 複数のパッチを重ねる
+        var patches = [
+          { x: 0.25, z: 0.15, sx: 1.4, sz: 1.2, o: 0.40 },
+          { x:-0.20, z:-0.10, sx: 1.6, sz: 1.0, o: 0.38 },
+          { x: 0.10, z:-0.25, sx: 1.3, sz: 1.5, o: 0.35 },
+          { x:-0.15, z: 0.20, sx: 1.1, sz: 1.3, o: 0.42 },
+          { x: 0.30, z:-0.20, sx: 1.0, sz: 0.9, o: 0.30 },
+          { x:-0.30, z: 0.05, sx: 0.9, sz: 1.1, o: 0.32 },
+        ];
+        patches.forEach(function(p) {
+          var patch = new THREE.Mesh(
+            new THREE.SphereGeometry(0.30 * scale, 12, 6),
+            makeCloudMat(p.o)
+          );
+          patch.scale.set(p.sx, 0.15, p.sz);
+          patch.position.set(p.x * scale, 0.01 * scale, p.z * scale);
+          grp.add(patch);
+        });
+        return placeOnSphere(grp, lat, lon, CR);
+      }
+
+      // ──────────────────────────────────────
+      //  積雲クラスター (Cumulus Cluster) — 対流性の雲群
+      //  個々の積雲が集まり数百 km のクラスターを形成
+      //  熱帯収束帯や夏季の大陸上で発達
+      // ──────────────────────────────────────
+      function buildCumulus(lat, lon, scale) {
+        var grp = new THREE.Group();
+        // 雲底層（LCL面）
+        var baseSph = new THREE.Mesh(
+          new THREE.SphereGeometry(0.40 * scale, 14, 10),
+          makeCloudMat(0.55)
+        );
+        baseSph.scale.set(1.8, 0.25, 1.5);
+        grp.add(baseSph);
+        // 対流セル群
+        var cells = [
+          { x: 0.00, y: 0.18, z: 0.00, r: 0.35, o: 0.80 },
+          { x: 0.00, y: 0.38, z: 0.00, r: 0.26, o: 0.74 },
+          { x: 0.00, y: 0.52, z: 0.00, r: 0.18, o: 0.65 },
+          { x: 0.24, y: 0.14, z: 0.10, r: 0.26, o: 0.72 },
+          { x:-0.22, y: 0.13, z: 0.12, r: 0.25, o: 0.70 },
+          { x: 0.14, y: 0.30, z:-0.18, r: 0.22, o: 0.68 },
+          { x:-0.16, y: 0.28, z: 0.20, r: 0.21, o: 0.66 },
+          { x: 0.26, y: 0.26, z:-0.12, r: 0.20, o: 0.64 },
+          { x:-0.24, y: 0.24, z:-0.10, r: 0.19, o: 0.62 },
+          { x: 0.10, y: 0.44, z: 0.14, r: 0.16, o: 0.56 },
+          { x:-0.12, y: 0.42, z:-0.10, r: 0.15, o: 0.54 },
+          { x: 0.20, y: 0.36, z: 0.18, r: 0.14, o: 0.50 },
+          { x:-0.18, y: 0.34, z:-0.16, r: 0.13, o: 0.48 },
+        ];
+        cells.forEach(function(c) {
+          var mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(c.r * scale, 9, 7),
+            makeCloudMat(c.o)
+          );
+          mesh.position.set(c.x * scale, c.y * scale, c.z * scale);
+          grp.add(mesh);
+        });
+        return placeOnSphere(grp, lat, lon, CR);
+      }
+
+      // ──────────────────────────────────────
+      //  台風・熱帯低気圧 (Tropical Cyclone)
+      //  スパイラル状の雲バンドが渦を巻く
+      //  中心に台風の目（eye）、周囲にアイウォール、
+      //  外側にスパイラルレインバンドが広がる
+      //  北半球: 反時計回り / 南半球: 時計回り
+      // ──────────────────────────────────────
+      function buildCyclone(lat, lon, scale, clockwise) {
+        var grp = new THREE.Group();
+        var dir = clockwise ? -1 : 1;
+        // アイウォール（目の壁雲 — 最も激しい上昇気流域）
+        // 目の半径を中心に密な雲のリングを形成
+        var eyeRadius = 0.08 * scale;
+        var wallCount = 10;
+        for (var i = 0; i < wallCount; i++) {
+          var angle = (i / wallCount) * Math.PI * 2;
+          var wr = eyeRadius + 0.02 * scale;
+          var wallCell = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08 * scale, 8, 6),
+            makeCloudMat(0.82)
+          );
+          wallCell.scale.set(1.4, 0.5, 1.4);
+          wallCell.position.set(
+            Math.cos(angle) * wr,
+            0.02 * scale,
+            Math.sin(angle) * wr
+          );
+          grp.add(wallCell);
+        }
+        // スパイラルレインバンド（3本の腕）
+        var arms = 3;
+        var bandsPerArm = 8;
+        for (var a = 0; a < arms; a++) {
+          var armOffset = (a / arms) * Math.PI * 2;
+          for (var b = 0; b < bandsPerArm; b++) {
+            var t = (b + 1) / bandsPerArm; // 0→1（中心→外側）
+            var spiralAngle = armOffset + dir * t * Math.PI * 1.8;
+            var spiralR = (0.15 + t * 0.50) * scale;
+            var bandSize = (0.10 + t * 0.06) * scale;
+            var bandMesh = new THREE.Mesh(
+              new THREE.SphereGeometry(bandSize, 8, 6),
+              makeCloudMat(0.60 - t * 0.20)
+            );
+            bandMesh.scale.set(1.6, 0.20, 0.8);
+            bandMesh.position.set(
+              Math.cos(spiralAngle) * spiralR,
+              (0.01 - t * 0.005) * scale,
+              Math.sin(spiralAngle) * spiralR
+            );
+            // バンドを渦の接線方向に回転
+            bandMesh.rotation.y = -spiralAngle + Math.PI * 0.5;
+            grp.add(bandMesh);
+          }
+        }
+        // 上層の巻雲アウトフロー（台風上層で広がる傘状の雲）
+        var outflow = new THREE.Mesh(
+          new THREE.SphereGeometry(0.55 * scale, 14, 8),
+          makeCloudMat(0.20)
+        );
+        outflow.scale.set(1.3, 0.06, 1.3);
+        outflow.position.y = 0.05 * scale;
+        grp.add(outflow);
+        return placeOnSphere(grp, lat, lon, CR);
+      }
+
+      // ──────────────────────────────────────
+      //  巻雲 (Cirrus) — 高高度の薄い氷晶雲
+      //  ジェット気流に沿って細長く延びる繊維状の雲
+      //  幅は狭いが長さは 100〜500 km に達する
+      // ──────────────────────────────────────
+      function buildCirrus(lat, lon, scale) {
+        var grp = new THREE.Group();
+        // 複数の細長い繊維を配置
+        var fibers = [
+          { x: 0.0, z: 0.0, rot: 0.0, len: 1.0 },
+          { x: 0.12, z: 0.06, rot: 0.2, len: 0.8 },
+          { x:-0.08, z:-0.05, rot:-0.15, len: 0.9 },
+          { x: 0.05, z: 0.12, rot: 0.35, len: 0.7 },
+          { x:-0.10, z: 0.08, rot:-0.1, len: 0.6 },
+        ];
+        fibers.forEach(function(f) {
+          var fiber = new THREE.Mesh(
+            new THREE.SphereGeometry(0.20 * scale * f.len, 10, 4),
+            makeCloudMat(0.22)
+          );
+          fiber.scale.set(2.5, 0.04, 0.3);
+          fiber.position.set(f.x * scale, 0, f.z * scale);
+          fiber.rotation.y = f.rot;
+          grp.add(fiber);
+        });
+        return placeOnSphere(grp, lat, lon, CR_HIGH);
+      }
+
+      // ═══════════════════════════════════════
+      //  雲の配置定義
+      //  type: 'stratus'  — 層雲（広範囲の雲層）
+      //        'cumulus'  — 積雲クラスター（対流雲群）
+      //        'cyclone'  — 台風・熱帯低気圧
+      //        'cirrus'   — 巻雲（高層の薄い雲）
+      //  s: サイズ係数
+      //  cw: true=時計回り（南半球）, 省略/false=反時計回り（北半球）
+      //      コリオリ力により北半球は反時計回り、南半球は時計回りに渦を巻く
+      // ═══════════════════════════════════════
+
       var cloudDefs = [
-        { lat:  10, lon:  40, s: 0.18 },  // アフリカ東岸〜インド洋（ITCZ帯）
-        { lat:  42, lon: 150, s: 0.16 },  // 北太平洋（中緯度低気圧帯）
-        { lat: -12, lon: -55, s: 0.19 },  // アマゾン上空（熱帯対流雲）
-        { lat:  52, lon: -25, s: 0.15 },  // 北大西洋（偏西風帯）
-        { lat:   5, lon: 105, s: 0.17 },  // 東南アジア（熱帯積雲）
+        // ── 層雲: 中緯度低気圧帯・海洋上の広範囲な雲 ──
+        { type: 'stratus', lat:  50, lon: -30, s: 0.70 },  // 北大西洋（偏西風帯の低気圧）
+        { type: 'stratus', lat:  55, lon:  15, s: 0.60 },  // 北欧・北海上空
+        { type: 'stratus', lat:  45, lon: 160, s: 0.65 },  // 北太平洋（低気圧帯）
+        { type: 'stratus', lat: -45, lon:  50, s: 0.55 },  // 南インド洋（暴風圏）
+        { type: 'stratus', lat: -50, lon: -70, s: 0.60 },  // 南太平洋（偏西風帯）
+        { type: 'stratus', lat: -48, lon: 150, s: 0.50 },  // タスマニア南方
+        { type: 'stratus', lat:  35, lon:-125, s: 0.55 },  // 北太平洋東部（海洋性層雲）
+        { type: 'stratus', lat: -20, lon: -85, s: 0.45 },  // ペルー沖（海洋性層雲）
+        { type: 'stratus', lat:  60, lon:  70, s: 0.50 },  // シベリア西部
+
+        // ── 積雲クラスター: 熱帯収束帯(ITCZ)・大陸上の対流雲群 ──
+        { type: 'cumulus', lat:   8, lon:  30, s: 0.55 },  // アフリカ中部（ITCZ）
+        { type: 'cumulus', lat:  -5, lon: -60, s: 0.60 },  // アマゾン（熱帯対流）
+        { type: 'cumulus', lat:   5, lon: 110, s: 0.50 },  // 東南アジア・マレー諸島
+        { type: 'cumulus', lat:  -8, lon: 130, s: 0.45 },  // パプアニューギニア
+        { type: 'cumulus', lat:  10, lon:  80, s: 0.45 },  // インド洋・ベンガル湾
+        { type: 'cumulus', lat:   3, lon: -30, s: 0.40 },  // 大西洋ITCZ
+        { type: 'cumulus', lat:  12, lon:-100, s: 0.40 },  // メキシコ太平洋側
+        { type: 'cumulus', lat:  -3, lon:  25, s: 0.35 },  // コンゴ盆地
+        { type: 'cumulus', lat:  30, lon: 120, s: 0.40 },  // 中国東部・東シナ海
+        { type: 'cumulus', lat:  25, lon: -80, s: 0.35 },  // カリブ海
+
+        // ── 台風・熱帯低気圧: スパイラル雲バンド ──
+        { type: 'cyclone', lat:  18, lon: 135, s: 0.55 },  // 西太平洋（台風）
+        { type: 'cyclone', lat:  22, lon: -65, s: 0.45 },  // カリブ海（ハリケーン）
+        { type: 'cyclone', lat: -15, lon:  65, s: 0.40, cw: true },  // 南インド洋（サイクロン）
+
+        // ── 巻雲: ジェット気流に沿った高層雲 ──
+        { type: 'cirrus', lat:  38, lon: -60, s: 0.50 },   // 北米東海岸上空
+        { type: 'cirrus', lat:  42, lon:  30, s: 0.45 },   // 地中海上空
+        { type: 'cirrus', lat:  35, lon: 140, s: 0.40 },   // 日本上空
+        { type: 'cirrus', lat: -35, lon: 175, s: 0.35 },   // ニュージーランド上空
+        { type: 'cirrus', lat:  48, lon: -110, s: 0.40 },  // 北米ロッキー山脈上空
+        { type: 'cirrus', lat: -30, lon: -50, s: 0.35 },   // 南米南部上空
       ];
 
       cloudDefs.forEach(function(cd) {
-        earthMesh.add(buildCumulus(cd.lat, cd.lon, cd.s));
+        switch (cd.type) {
+          case 'stratus':
+            earthMesh.add(buildStratus(cd.lat, cd.lon, cd.s));
+            break;
+          case 'cumulus':
+            earthMesh.add(buildCumulus(cd.lat, cd.lon, cd.s));
+            break;
+          case 'cyclone':
+            earthMesh.add(buildCyclone(cd.lat, cd.lon, cd.s, !!cd.cw));
+            break;
+          case 'cirrus':
+            earthMesh.add(buildCirrus(cd.lat, cd.lon, cd.s));
+            break;
+        }
       });
     })();
 
