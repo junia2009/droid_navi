@@ -1647,6 +1647,381 @@
       fetchGlobalWeatherAndUpdateClouds();
     })();
 
+    // =====================================================
+    //  X-Wing & TIE Fighter 宇宙戦闘
+    // =====================================================
+    var battleFighters = [];
+    var laserBolts = [];
+    var explosions = [];
+    var HIT_DISTANCE = 0.4;
+    var MIN_RESPAWN_FRAMES = 180;
+    var RESPAWN_VARIANCE_FRAMES = 120;
+
+    // --- X-Wing 構築 ---
+    function buildXWing() {
+      var xw = new THREE.Group();
+      var bodyMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.4, metalness: 0.15 });
+      var redMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.4, metalness: 0.1 });
+      var dkMat = new THREE.MeshStandardMaterial({ color: 0x333340, roughness: 0.3, metalness: 0.5 });
+      var engineMat = new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x2244aa, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.3 });
+
+      // 胴体（先細りの長いノーズ）
+      var nose = new THREE.Mesh(cy(0.025, 0.06, 0.5, 8), bodyMat);
+      nose.rotation.x = Math.PI / 2;
+      nose.position.z = 0.35;
+      xw.add(nose);
+      var fuselage = new THREE.Mesh(bx(0.12, 0.09, 0.45), bodyMat);
+      fuselage.position.z = -0.1;
+      xw.add(fuselage);
+
+      // コクピット
+      var cockpitMat = new THREE.MeshStandardMaterial({ color: 0x1a2a44, roughness: 0.1, metalness: 0.7 });
+      var cockpit = new THREE.Mesh(sp(0.05, 8, 6), cockpitMat);
+      cockpit.scale.set(1, 0.7, 1.4);
+      cockpit.position.set(0, 0.06, 0.05);
+      xw.add(cockpit);
+
+      // R2ユニット
+      var r2 = new THREE.Mesh(cy(0.03, 0.03, 0.05, 8), new THREE.MeshStandardMaterial({ color: 0x2244bb, roughness: 0.4 }));
+      r2.position.set(0, 0.07, -0.12);
+      xw.add(r2);
+      var r2Head = new THREE.Mesh(sp(0.03, 6, 4), bodyMat);
+      r2Head.scale.y = 0.6;
+      r2Head.position.set(0, 0.10, -0.12);
+      xw.add(r2Head);
+
+      // S-フォイル（4枚の翼 — X字に展開）
+      var wingGeo = bx(0.55, 0.012, 0.25);
+      var wingPositions = [
+        { y: 0.04, rotZ: 0.18 },    // 右上
+        { y: 0.04, rotZ: -0.18 },   // 右下
+        { y: -0.04, rotZ: 0.18 },   // 左上（反転）
+        { y: -0.04, rotZ: -0.18 },  // 左下（反転）
+      ];
+      for (var wi = 0; wi < 4; wi++) {
+        var wp = wingPositions[wi];
+        var side = wi < 2 ? 1 : -1;
+        var wing = new THREE.Mesh(wingGeo, bodyMat);
+        wing.position.set(side * 0.3, wp.y, -0.05);
+        wing.rotation.z = wp.rotZ * side;
+        xw.add(wing);
+
+        // 赤ストライプ
+        var stripe = new THREE.Mesh(bx(0.15, 0.014, 0.04), redMat);
+        stripe.position.set(side * 0.45, wp.y + Math.sin(wp.rotZ * side) * 0.15, 0.08);
+        stripe.rotation.z = wp.rotZ * side;
+        xw.add(stripe);
+
+        // 翼端のレーザーキャノン
+        var cannon = new THREE.Mesh(cy(0.012, 0.012, 0.2, 6), dkMat);
+        cannon.rotation.x = Math.PI / 2;
+        cannon.position.set(side * 0.55, wp.y + Math.sin(wp.rotZ * side) * 0.25, 0.06);
+        cannon.rotation.z = wp.rotZ * side;
+        xw.add(cannon);
+
+        // エンジンノズル
+        var eng = new THREE.Mesh(cy(0.022, 0.018, 0.06, 6), engineMat);
+        eng.rotation.x = Math.PI / 2;
+        eng.position.set(side * 0.25, wp.y + Math.sin(wp.rotZ * side) * -0.05, -0.35);
+        eng.rotation.z = wp.rotZ * side;
+        xw.add(eng);
+      }
+
+      // 胴体赤ストライプ
+      var bodyStripe = new THREE.Mesh(bx(0.01, 0.095, 0.44), redMat);
+      bodyStripe.position.set(0.065, 0, -0.1);
+      xw.add(bodyStripe);
+
+      return xw;
+    }
+
+    // --- TIE Fighter 構築 ---
+    function buildTIEFighter() {
+      var tie = new THREE.Group();
+      var panelMat = new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 0.35, metalness: 0.4 });
+      var frameMat = new THREE.MeshStandardMaterial({ color: 0x333344, roughness: 0.3, metalness: 0.5 });
+      var cockpitMat = new THREE.MeshStandardMaterial({ color: 0x1a1a2a, roughness: 0.15, metalness: 0.6 });
+      var windowMat = new THREE.MeshStandardMaterial({ color: 0x112244, roughness: 0.05, metalness: 0.8, emissive: 0x0a1122, emissiveIntensity: 0.3 });
+
+      // 球形コクピット
+      var cockpitBall = new THREE.Mesh(sp(0.12, 12, 10), cockpitMat);
+      tie.add(cockpitBall);
+      // コクピット窓（前面の六角形的なウィンドウ）
+      var windowMesh = new THREE.Mesh(sp(0.09, 6, 4), windowMat);
+      windowMesh.scale.z = 0.3;
+      windowMesh.position.z = 0.1;
+      tie.add(windowMesh);
+
+      // 支柱（左右のパイロン）
+      for (var si = 0; si < 2; si++) {
+        var side = si === 0 ? -1 : 1;
+        var strut = new THREE.Mesh(bx(0.18, 0.03, 0.03), frameMat);
+        strut.position.set(side * 0.2, 0, 0);
+        tie.add(strut);
+
+        // ソーラーパネル（六角形）
+        var panelShape = new THREE.Shape();
+        var panelR = 0.3;
+        for (var hi = 0; hi < 6; hi++) {
+          var ha = (hi / 6) * Math.PI * 2 - Math.PI / 6;
+          if (hi === 0) panelShape.moveTo(Math.cos(ha) * panelR, Math.sin(ha) * panelR);
+          else panelShape.lineTo(Math.cos(ha) * panelR, Math.sin(ha) * panelR);
+        }
+        panelShape.closePath();
+        var panelGeo = new THREE.ShapeGeometry(panelShape);
+        var panel = new THREE.Mesh(panelGeo, panelMat);
+        panel.rotation.y = side * Math.PI / 2;
+        panel.position.set(side * 0.31, 0, 0);
+        tie.add(panel);
+
+        // パネルフレーム（十字の支柱）
+        var hBar = new THREE.Mesh(bx(0.008, 0.55, 0.012), frameMat);
+        hBar.position.set(side * 0.315, 0, 0);
+        hBar.rotation.y = side * Math.PI / 2;
+        tie.add(hBar);
+        var vBar = new THREE.Mesh(bx(0.55, 0.008, 0.012), frameMat);
+        vBar.position.set(side * 0.315, 0, 0);
+        vBar.rotation.y = side * Math.PI / 2;
+        tie.add(vBar);
+
+        // パネル対角フレーム
+        var d1 = new THREE.Mesh(bx(0.008, 0.55, 0.012), frameMat);
+        d1.rotation.y = side * Math.PI / 2;
+        d1.rotation.x = Math.PI / 4;
+        d1.position.set(side * 0.315, 0, 0);
+        tie.add(d1);
+        var d2 = new THREE.Mesh(bx(0.008, 0.55, 0.012), frameMat);
+        d2.rotation.y = side * Math.PI / 2;
+        d2.rotation.x = -Math.PI / 4;
+        d2.position.set(side * 0.315, 0, 0);
+        tie.add(d2);
+      }
+
+      // レーザーキャノン（下部）
+      var laserL = new THREE.Mesh(cy(0.01, 0.01, 0.12, 6), frameMat);
+      laserL.rotation.x = Math.PI / 2;
+      laserL.position.set(0, -0.08, 0.14);
+      tie.add(laserL);
+
+      return tie;
+    }
+
+    // --- レーザーボルト生成 ---
+    function createLaserBolt(startPos, direction, color) {
+      var laserMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 });
+      var laser = new THREE.Mesh(cy(0.008, 0.008, 0.2, 4), laserMat);
+      laser.position.copy(startPos);
+      laser.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+      scene.add(laser);
+      return {
+        mesh: laser,
+        dir: direction.clone().normalize(),
+        speed: 0.25,
+        life: 120,
+        age: 0
+      };
+    }
+
+    // --- 爆発エフェクト生成 ---
+    function createExplosion(position) {
+      var group = new THREE.Group();
+      group.position.copy(position);
+      var partCount = 12;
+      var parts = [];
+      for (var i = 0; i < partCount; i++) {
+        var col = Math.random() > 0.4 ? 0xff6622 : (Math.random() > 0.5 ? 0xffaa00 : 0xff2200);
+        var pMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 1.0 });
+        var pMesh = new THREE.Mesh(sp(0.02 + Math.random() * 0.04, 4, 3), pMat);
+        var vel = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.08,
+          (Math.random() - 0.5) * 0.08,
+          (Math.random() - 0.5) * 0.08
+        );
+        group.add(pMesh);
+        parts.push({ mesh: pMesh, vel: vel });
+      }
+      // 中心フラッシュ
+      var flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1.0 });
+      var flash = new THREE.Mesh(sp(0.1, 6, 4), flashMat);
+      group.add(flash);
+
+      scene.add(group);
+      var exp = { group: group, parts: parts, flash: flash, life: 40, age: 0 };
+      explosions.push(exp);
+      return exp;
+    }
+
+    // --- 戦闘機の配置 ---
+    (function initBattle() {
+      // X-Wing 3機
+      for (var xi = 0; xi < 3; xi++) {
+        var xwing = buildXWing();
+        xwing.scale.set(0.8, 0.8, 0.8);
+        scene.add(xwing);
+        var orbitR = 5 + xi * 0.8;
+        var orbitH = 5 + xi * 0.5;
+        var phase = (xi / 3) * Math.PI * 2;
+        battleFighters.push({
+          mesh: xwing,
+          type: 'xwing',
+          orbitRadius: orbitR,
+          orbitHeight: orbitH,
+          orbitSpeed: 0.008 + xi * 0.002,
+          phase: phase,
+          verticalPhase: xi * 1.2,
+          verticalAmp: 1.0 + xi * 0.3,
+          rollAmp: 0.3,
+          fireRate: 80 + xi * 20,
+          fireCooldown: Math.floor(Math.random() * 60),
+          hp: 3,
+          alive: true,
+          respawnTimer: 0
+        });
+      }
+      // TIE Fighter 4機
+      for (var ti = 0; ti < 4; ti++) {
+        var tfighter = buildTIEFighter();
+        tfighter.scale.set(0.7, 0.7, 0.7);
+        scene.add(tfighter);
+        var tOrbitR = 5.5 + ti * 0.7;
+        var tOrbitH = 5.5 + ti * 0.4;
+        var tPhase = (ti / 4) * Math.PI * 2 + Math.PI * 0.5;
+        battleFighters.push({
+          mesh: tfighter,
+          type: 'tie',
+          orbitRadius: tOrbitR,
+          orbitHeight: tOrbitH,
+          orbitSpeed: 0.010 + ti * 0.002,
+          phase: tPhase,
+          verticalPhase: ti * 0.9 + 0.5,
+          verticalAmp: 0.8 + ti * 0.25,
+          rollAmp: 0.25,
+          fireRate: 60 + ti * 15,
+          fireCooldown: Math.floor(Math.random() * 50),
+          hp: 2,
+          alive: true,
+          respawnTimer: 0
+        });
+      }
+    })();
+
+    // --- 戦闘アニメーション更新 ---
+    function updateBattle(time) {
+      var xwings = battleFighters.filter(function(f) { return f.type === 'xwing'; });
+      var ties = battleFighters.filter(function(f) { return f.type === 'tie'; });
+
+      battleFighters.forEach(function(f) {
+        // リスポーン処理
+        if (!f.alive) {
+          f.respawnTimer--;
+          f.mesh.visible = false;
+          if (f.respawnTimer <= 0) {
+            f.alive = true;
+            f.hp = f.type === 'xwing' ? 3 : 2;
+            f.mesh.visible = true;
+            f.phase += Math.PI * 0.7; // リスポーン時に位相をずらす
+          }
+          return;
+        }
+
+        // 軌道上を飛行
+        f.phase += f.orbitSpeed;
+        f.verticalPhase += 0.012;
+        var px = Math.cos(f.phase) * f.orbitRadius;
+        var py = f.orbitHeight + Math.sin(f.verticalPhase) * f.verticalAmp;
+        var pz = Math.sin(f.phase) * f.orbitRadius;
+        f.mesh.position.set(px, py, pz);
+
+        // 進行方向を向く
+        var nextPx = Math.cos(f.phase + 0.05) * f.orbitRadius;
+        var nextPy = f.orbitHeight + Math.sin(f.verticalPhase + 0.05) * f.verticalAmp;
+        var nextPz = Math.sin(f.phase + 0.05) * f.orbitRadius;
+        var forward = new THREE.Vector3(nextPx - px, nextPy - py, nextPz - pz).normalize();
+
+        // lookAt を使って進行方向を向かせる
+        var lookTarget = f.mesh.position.clone().add(forward);
+        f.mesh.lookAt(lookTarget);
+
+        // バンク角（旋回時にロール）
+        f.mesh.rotation.z += Math.sin(f.phase * 2) * f.rollAmp * 0.02;
+
+        // 射撃
+        f.fireCooldown--;
+        if (f.fireCooldown <= 0) {
+          f.fireCooldown = f.fireRate + Math.floor(Math.random() * 20);
+
+          // 敵陣営からターゲットを選択
+          var enemies = f.type === 'xwing' ? ties : xwings;
+          var aliveEnemies = enemies.filter(function(e) { return e.alive; });
+          if (aliveEnemies.length > 0) {
+            var target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+            var toTarget = target.mesh.position.clone().sub(f.mesh.position).normalize();
+
+            // レーザー色: X-Wing=赤, TIE=緑
+            var laserColor = f.type === 'xwing' ? 0xff2222 : 0x22ff44;
+            var bolt = createLaserBolt(f.mesh.position.clone(), toTarget, laserColor);
+            bolt.target = target;
+            laserBolts.push(bolt);
+
+            // X-Wingは2連射
+            if (f.type === 'xwing') {
+              var offset = new THREE.Vector3(0.1, 0, 0);
+              var bolt2 = createLaserBolt(f.mesh.position.clone().add(offset), toTarget, laserColor);
+              bolt2.target = target;
+              laserBolts.push(bolt2);
+            }
+          }
+        }
+      });
+
+      // レーザーボルト更新
+      for (var li = laserBolts.length - 1; li >= 0; li--) {
+        var bolt = laserBolts[li];
+        bolt.mesh.position.add(bolt.dir.clone().multiplyScalar(bolt.speed));
+        bolt.age++;
+
+        // ターゲットとの当たり判定
+        if (bolt.target && bolt.target.alive) {
+          var dist = bolt.mesh.position.distanceTo(bolt.target.mesh.position);
+          if (dist < HIT_DISTANCE) {
+            bolt.target.hp--;
+            if (bolt.target.hp <= 0) {
+              bolt.target.alive = false;
+              bolt.target.respawnTimer = MIN_RESPAWN_FRAMES + Math.floor(Math.random() * RESPAWN_VARIANCE_FRAMES);
+              createExplosion(bolt.target.mesh.position.clone());
+            }
+            scene.remove(bolt.mesh);
+            laserBolts.splice(li, 1);
+            continue;
+          }
+        }
+
+        if (bolt.age > bolt.life) {
+          scene.remove(bolt.mesh);
+          laserBolts.splice(li, 1);
+        }
+      }
+
+      // 爆発エフェクト更新
+      for (var ei = explosions.length - 1; ei >= 0; ei--) {
+        var exp = explosions[ei];
+        exp.age++;
+        var progress = exp.age / exp.life;
+        exp.parts.forEach(function(p) {
+          p.mesh.position.add(p.vel);
+          p.vel.multiplyScalar(0.95);
+          p.mesh.material.opacity = Math.max(0, 1 - progress);
+          p.mesh.scale.setScalar(1 + progress * 2);
+        });
+        exp.flash.material.opacity = Math.max(0, 1 - progress * 3);
+        exp.flash.scale.setScalar(1 + progress * 4);
+        if (exp.age >= exp.life) {
+          scene.remove(exp.group);
+          explosions.splice(ei, 1);
+        }
+      }
+    }
+
     // ===== 宇宙背景（スターフィールド）=====
     var stars;
     (function() {
@@ -1847,6 +2222,9 @@
       }
 
       // 雲は earthMesh の子要素として自転に連動する（大気圏が地球と共に回転）
+
+      // --- 戦闘機バトル更新 ---
+      updateBattle(aP);
 
       renderer.render(scene, camera);
     }
