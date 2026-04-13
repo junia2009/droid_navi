@@ -35,7 +35,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 14px; font-weight: bold;
     }
-    .msg.bot .msg-avatar { background: linear-gradient(135deg, #b31e22, #d44); color: #fff; }
+    .msg.bot .msg-avatar { background: url('icon-192.svg') center/cover no-repeat; color: transparent; }
     .msg.user .msg-avatar { background: linear-gradient(135deg, #1a3cb5, #3366dd); color: #fff; }
     .msg-bubble {
       padding: 8px 14px; border-radius: 12px; max-width: 280px;
@@ -2265,7 +2265,7 @@
       div.className = 'msg ' + type;
       var avatar = document.createElement('div');
       avatar.className = 'msg-avatar';
-      avatar.textContent = type === 'bot' ? 'RT91' : 'You';
+      avatar.textContent = type === 'bot' ? '' : 'You';
       var bubble = document.createElement('div');
       bubble.className = 'msg-bubble';
       if (html) { bubble.innerHTML = text; } else { bubble.textContent = text; }
@@ -2279,7 +2279,7 @@
       var div = document.createElement('div');
       div.className = 'msg bot';
       div.id = 'typing-msg';
-      div.innerHTML = '<div class="msg-avatar">RT91</div><div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+      div.innerHTML = '<div class="msg-avatar"></div><div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
       chatLog.appendChild(div);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
